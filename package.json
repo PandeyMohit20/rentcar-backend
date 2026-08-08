@@ -1,0 +1,65 @@
+{
+  "name": "rentcar-backend",
+  "version": "1.0.0",
+  "description": "RentCar SaaS platform — production-ready backend foundation. Node.js, Express, Prisma Client, MySQL, JWT, Zod validation.",
+  "main": "src/server.js",
+  "private": true,
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "cross-env NODE_ENV=test jest --runInBand",
+    "test:watch": "cross-env NODE_ENV=test jest --watchAll",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "check": "node scripts/check.js",
+    "health": "node scripts/health.js"
+  },
+  "keywords": [
+    "rentcar",
+    "saas",
+    "node",
+    "express",
+    "prisma",
+    "mysql",
+    "jwt",
+    "rest"
+  ],
+  "author": "RentCar Platform",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcrypt": "^5.1.1",
+    "compression": "^1.7.4",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "uuid": "^9.0.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "eslint": "^8.57.1",
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.4",
+    "prettier": "^3.3.3",
+    "supertest": "^7.0.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "setupFiles": [
+      "<rootDir>/tests/setup.js"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/server.js",
+      "!src/config/database.js"
+    ]
+  }
+}

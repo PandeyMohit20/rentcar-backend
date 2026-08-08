@@ -1,0 +1,4 @@
+❌ Invalid environment configuration. Application will not start.
+  - DATABASE_URL: Required
+  - JWT_ACCESS_SECRET: Required
+  - JWT_REFRESH_SECRET: Required

@@ -1,0 +1,29 @@
+{
+  "env": {
+    "node": true,
+    "es2022": true,
+    "jest": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "commonjs"
+  },
+  "extends": ["eslint:recommended"],
+  "rules": {
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "no-dupe-keys": "error",
+    "no-duplicate-case": "error",
+    "no-undef": "error",
+    "no-extra-semi": "error",
+    "no-multiple-empty-lines": ["error", { "max": 1, "maxEOF": 0 }],
+    "comma-dangle": ["error", "always-multiline"],
+    "quotes": ["error", "single", { "avoidEscape": true }],
+    "semi": ["error", "always"],
+    "eqeqeq": ["error", "always"],
+    "no-unreachable": "error",
+    "require-atomic-updates": "off"
+  },
+  "ignorePatterns": ["node_modules/", "coverage/", "logs/", "dist/", "build/"]
+}
+

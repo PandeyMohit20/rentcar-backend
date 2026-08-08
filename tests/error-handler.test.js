@@ -1,0 +1,69 @@
+'use strict';
+
+const request = require('supertest');
+const express = require('express');
+const { createApp } = require('../src/app');
+const { authenticate } = require('../src/middlewares/authenticate');
+const { errorHandler } = require('../src/middlewares/errorHandler');
+
+describe('Error handling', () => {
+  let app;
+
+  beforeAll(() => {
+    app = createApp();
+  });
+
+  describe('404 handler', () => {
+    it('returns 404 with standard error response for unknown routes', async () => {
+      const res = await request(app).get('/api/v1/non-existing-route');
+
+      expect(res.status).toBe(404);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toBe('Route not found');
+      expect(res.body.error.code).toBe('ROUTE_NOT_FOUND');
+    });
+  });
+
+  describe('501 Not Implemented for future modules', () => {
+    it('returns 501 for /api/v1/users', async () => {
+      const res = await request(app).get('/api/v1/users');
+      expect(res.status).toBe(501);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe('NOT_IMPLEMENTED');
+    });
+
+    it('returns 501 for /api/v1/bookings', async () => {
+      const res = await request(app).get('/api/v1/bookings');
+      expect(res.status).toBe(501);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe('NOT_IMPLEMENTED');
+    });
+  });
+
+  describe('Authentication middleware', () => {
+    const buildTestApp = () => {
+      const testApp = express();
+      testApp.get('/protected', authenticate, (req, res) => res.json({ ok: true }));
+      testApp.use(errorHandler);
+      return testApp;
+    };
+
+    it('returns 401 when no token is provided', async () => {
+      // There is no protected route in Phase 19, but we can verify the
+      // middleware directly by mounting it on a test route.
+      const res = await request(buildTestApp()).get('/protected');
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe('UNAUTHORIZED');
+    });
+
+    it('returns 401 for an invalid token with INVALID_TOKEN code', async () => {
+      const res = await request(buildTestApp())
+        .get('/protected')
+        .set('Authorization', 'Bearer invalid.token.here');
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe('INVALID_TOKEN');
+    });
+  });
+});
