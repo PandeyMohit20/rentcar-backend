@@ -58,7 +58,7 @@ if (Object.prototype.hasOwnProperty.call(value, 'contains')) {
 }
 
 /** Map a record, applying `include` relations where supported. */
-function applyInclude(record, include, store, _modelName) {
+function applyInclude(record, include, store, modelName) {
   if (!include || !record) return record;
   const out = { ...record };
 
@@ -75,9 +75,25 @@ function applyInclude(record, include, store, _modelName) {
     }
   }
 
+  // Permissions on a rolePermission row (relationship join).
   if (include.permissions && record.roleId) {
     out.permissions = store.rolePermission
       .filter((rp) => rp.roleId === record.roleId)
+      .map((rp) => {
+        let permission = store.permission.find((p) => p.id === rp.permissionId);
+        if (permission && include.permissions.include && include.permissions.include.permission) {
+          permission = { ...permission };
+        }
+        return { permission: permission || null };
+      });
+  }
+
+  // Nested permissions directly on a role record (role.include.permissions).
+  // A role stores its many-to-many permissions via rolePermission; the join
+  // rows reference this role's id (record.id), not record.roleId.
+  if (include.permissions && modelName === 'role' && record.id) {
+    out.permissions = store.rolePermission
+      .filter((rp) => rp.roleId === record.id)
       .map((rp) => {
         const permission = store.permission.find((p) => p.id === rp.permissionId);
         return { permission: permission || null };

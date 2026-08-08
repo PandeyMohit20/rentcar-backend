@@ -1,0 +1,212 @@
+﻿
+> rentcar-backend@1.0.0 test
+> cross-env NODE_ENV=test jest --runInBand --silent
+
+node.exe : FAIL tests/refresh.test.js
+At line:1 char:1
++ & "C:\nvm4w\nodejs/node.exe" "C:\nvm4w\nodejs/node_modules/npm/bin/np ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (FAIL tests/refresh.test.js:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  ΓùÅ Auth Refresh (Token Rotation) ΓÇ║ POST /api/v1/auth/refresh ΓÇ║ rotates a valid refresh token
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 500
+
+    [0m [90m 48 |[39m         [33m.[39msend({ refreshToken[33m:[39m jwt })[33m;[39m
+     [90m 49 |[39m
+    [31m[1m>[22m[39m[90m 50 |[39m       expect(res[33m.[39mstatus)[33m.[39mtoBe([35m200[39m)[33m;[39m
+     [90m    |[39m                          [31m[1m^[22m[39m
+     [90m 51 |[39m       
+expect(res[33m.[39mbody[33m.[39mdata[33m.[39maccessToken)[33m.[39mtoBeDefined()[33m;[39m
+     [90m 52 |[39m       
+expect(res[33m.[39mbody[33m.[39mdata[33m.[39mrefreshToken)[33m.[39mtoBeDefined()[33m;[39m
+     [90m 53 |[39m[0m
+
+      at Object.toBe (tests/refresh.test.js:50:26)
+
+  ΓùÅ Auth Refresh (Token Rotation) ΓÇ║ POST /api/v1/auth/refresh ΓÇ║ returns a new access token that verifies
+
+    TypeError: Cannot read properties of undefined (reading 'accessToken')
+
+    [0m [90m 67 |[39m         [33m.[39msend({ refreshToken[33m:[39m jwt })[33m;[39m
+     [90m 68 |[39m
+    [31m[1m>[22m[39m[90m 69 |[39m [36mconst[39m decoded [33m=[39m 
+verifyAccessToken(res[33m.[39mbody[33m.[39mdata[33m.[39maccessToken)[33m;[39m
+     [90m    |[39m                                                 [31m[1m^[22m[39m
+     [90m 70 |[39m       expect(decoded[33m.[39msub)[33m.[39mtoBe(user[33m.[39mid)[33m;[39m
+     [90m 71 |[39m     })[33m;[39m
+     [90m 72 |[39m[0m
+
+      at Object.accessToken (tests/refresh.test.js:69:49)
+
+  ΓùÅ Auth Refresh (Token Rotation) ΓÇ║ POST /api/v1/auth/refresh ΓÇ║ detects refresh token reuse of an already-rotated 
+token
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 500
+
+    [0m [90m 102 |[39m         [33m.[39mpost([32m'/api/v1/auth/refresh'[39m)
+     [90m 103 |[39m         [33m.[39msend({ refreshToken[33m:[39m jwt })[33m;[39m
+    [31m[1m>[22m[39m[90m 104 |[39m       expect(first[33m.[39mstatus)[33m.[39mtoBe([35m200[39m)[33m;[39m
+     [90m     |[39m                            [31m[1m^[22m[39m
+     [90m 105 |[39m
+     [90m 106 |[39m       [90m// Reusing the old token must be detected as reuse.[39m
+     [90m 107 |[39m       [36mconst[39m second [33m=[39m [36mawait[39m request(app)[0m
+
+      at Object.toBe (tests/refresh.test.js:104:28)
+
+FAIL tests/login.test.js
+  ΓùÅ Auth Login ΓÇ║ POST /api/v1/auth/login ΓÇ║ logs in successfully and returns access token + session
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 500
+
+    [0m [90m 27 |[39m       [36mconst[39m res [33m=[39m [36mawait[39m 
+request(app)[33m.[39mpost([32m'/api/v1/auth/login'[39m)[33m.[39msend({ email[33m,[39m password })[33m;[39m
+     [90m 28 |[39m
+    [31m[1m>[22m[39m[90m 29 |[39m       expect(res[33m.[39mstatus)[33m.[39mtoBe([35m200[39m)[33m;[39m
+     [90m    |[39m                          [31m[1m^[22m[39m
+     [90m 30 |[39m       expect(res[33m.[39mbody[33m.[39msuccess)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m 31 |[39m       expect(res[33m.[39mbody[33m.[39mmessage)[33m.[39mtoBe([32m'Login 
+successful'[39m)[33m;[39m
+     [90m 32 |[39m       
+expect(res[33m.[39mbody[33m.[39mdata[33m.[39maccessToken)[33m.[39mtoBeDefined()[33m;[39m[0m
+
+      at Object.toBe (tests/login.test.js:29:26)
+
+  ΓùÅ Auth Login ΓÇ║ POST /api/v1/auth/login ΓÇ║ stores a refresh token hash on login
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+    [0m [90m 88 |[39m       [36mawait[39m 
+request(app)[33m.[39mpost([32m'/api/v1/auth/login'[39m)[33m.[39msend({ email[33m,[39m password })[33m;[39m
+     [90m 89 |[39m       [36mconst[39m tokens [33m=[39m [36mawait[39m 
+prisma[33m.[39mrefreshToken[33m.[39mfindMany({ where[33m:[39m { userId[33m:[39m user[33m.[39mid } })[33m;[39m
+    [31m[1m>[22m[39m[90m 90 |[39m       expect(tokens[33m.[39mlength)[33m.[39mtoBe([35m1[39m)[33m;[39m
+     [90m    |[39m                             [31m[1m^[22m[39m
+     [90m 91 |[39m       expect(tokens[[35m0[39m][33m.[39mtokenHash)[33m.[39mtoBeDefined()[33m;[39m
+     [90m 92 |[39m       [90m// Hash must not be the raw token.[39m
+     [90m 93 |[39m       
+expect(tokens[[35m0[39m][33m.[39mtokenHash[33m.[39mlength)[33m.[39mtoBe([35m64[39m)[33m;[39m[0m
+
+      at Object.toBe (tests/login.test.js:90:29)
+
+  ΓùÅ Auth Login ΓÇ║ POST /api/v1/auth/login ΓÇ║ sets the refresh token as an HttpOnly cookie
+
+    expect(received).toContain(expected) // indexOf
+
+    Expected substring: "refresh_token"
+    Received string:    "undefined"
+
+    [0m [90m 107 |[39m         [33m?[39m res[33m.[39mheaders[[32m'set-cookie'[39m][33m.[39mjoin([32m'; '[39m)
+     [90m 108 |[39m         [33m:[39m [33mString[39m(res[33m.[39mheaders[[32m'set-cookie'[39m])[33m;[39m
+    [31m[1m>[22m[39m[90m 109 |[39m       expect(setCookie)[33m.[39mtoContain([32m'refresh_token'[39m)[33m;[39m
+     [90m     |[39m                         [31m[1m^[22m[39m
+     [90m 110 |[39m       expect(setCookie)[33m.[39mtoContain([32m'HttpOnly'[39m)[33m;[39m
+     [90m 111 |[39m     })[33m;[39m
+     [90m 112 |[39m   })[33m;[39m[0m
+
+      at Object.toContain (tests/login.test.js:109:25)
+
+FAIL tests/register.test.js
+  ΓùÅ Auth Register ΓÇ║ POST /api/v1/auth/register ΓÇ║ rolls back the transaction when role assignment fails
+
+    expect(received).toBeNull()
+
+    Received: {"createdAt": 2026-08-08T13:22:11.160Z, "email": "john@example.com", "id": 
+"4893041e-3fd5-410c-879f-69269fe61f8f", "name": "John Doe", "passwordHash": 
+"$2b$10$61xSNjgWghp4pHgB/fdxXezvendsy6ziHGeSCsJ2uzNPgzYO4G3Rq", "phone": "+919999999999", "status": "pending", 
+"updatedAt": 2026-08-08T13:22:11.160Z}
+
+    [0m [90m 111 |[39m       [90m// User should not exist after rollback.[39m
+     [90m 112 |[39m       [36mconst[39m user [33m=[39m [36mawait[39m prisma[33m.[39muser[33m.[39mfindUnique({ 
+where[33m:[39m { email[33m:[39m [32m'john@example.com'[39m } })[33m;[39m
+    [31m[1m>[22m[39m[90m 113 |[39m       expect(user)[33m.[39mtoBeNull()[33m;[39m
+     [90m     |[39m                    [31m[1m^[22m[39m
+     [90m 114 |[39m     })[33m;[39m
+     [90m 115 |[39m   })[33m;[39m
+     [90m 116 |[39m })[33m;[39m[0m
+
+      at Object.toBeNull (tests/register.test.js:113:20)
+
+FAIL tests/logout.test.js
+  ΓùÅ Auth Logout ΓÇ║ POST /api/v1/auth/logout ΓÇ║ revokes the session on logout
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 500
+
+    [0m [90m 47 |[39m         [33m.[39m[36mset[39m([32m'Authorization'[39m[33m,[39m [32m`Bearer 
+${accessToken}`[39m)[33m;[39m
+     [90m 48 |[39m
+    [31m[1m>[22m[39m[90m 49 |[39m       expect(res[33m.[39mstatus)[33m.[39mtoBe([35m200[39m)[33m;[39m
+     [90m    |[39m                          [31m[1m^[22m[39m
+     [90m 50 |[39m       expect(res[33m.[39mbody[33m.[39msuccess)[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m 51 |[39m       [36mconst[39m s [33m=[39m [36mawait[39m prisma[33m.[39msession[33m.[39mfindUnique({ 
+where[33m:[39m { id[33m:[39m session[33m.[39mid } })[33m;[39m
+     [90m 52 |[39m       expect(s[33m.[39mrevokedAt)[33m.[39mtoBeTruthy()[33m;[39m[0m
+
+      at Object.toBe (tests/logout.test.js:49:26)
+
+  ΓùÅ Auth Logout ΓÇ║ POST /api/v1/auth/logout ΓÇ║ is idempotent (logging out twice succeeds)
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 500
+
+    [0m [90m 60 |[39m         [33m.[39mpost([32m'/api/v1/auth/logout'[39m)
+     [90m 61 |[39m         [33m.[39m[36mset[39m([32m'Authorization'[39m[33m,[39m [32m`Bearer 
+${accessToken}`[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 62 |[39m       expect(first[33m.[39mstatus)[33m.[39mtoBe([35m200[39m)[33m;[39m
+     [90m    |[39m                            [31m[1m^[22m[39m
+     [90m 63 |[39m
+     [90m 64 |[39m       [36mconst[39m second [33m=[39m [36mawait[39m request(app)
+     [90m 65 |[39m         [33m.[39mpost([32m'/api/v1/auth/logout'[39m)[0m
+
+      at Object.toBe (tests/logout.test.js:62:28)
+
+  ΓùÅ Auth Logout ΓÇ║ POST /api/v1/auth/logout-all ΓÇ║ revokes all sessions and refresh tokens for the user
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 500
+
+    [0m [90m 94 |[39m         [33m.[39m[36mset[39m([32m'Authorization'[39m[33m,[39m [32m`Bearer 
+${accessToken}`[39m)[33m;[39m
+     [90m 95 |[39m
+    [31m[1m>[22m[39m[90m 96 |[39m       expect(res[33m.[39mstatus)[33m.[39mtoBe([35m200[39m)[33m;[39m
+     [90m    |[39m                          [31m[1m^[22m[39m
+     [90m 97 |[39m       [36mconst[39m sessions [33m=[39m [36mawait[39m 
+prisma[33m.[39msession[33m.[39mfindMany({ where[33m:[39m { userId[33m:[39m user[33m.[39mid } })[33m;[39m
+     [90m 98 |[39m       expect(sessions[33m.[39mevery((s) [33m=>[39m 
+s[33m.[39mrevokedAt))[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m 99 |[39m       [36mconst[39m tokens [33m=[39m [36mawait[39m 
+prisma[33m.[39mrefreshToken[33m.[39mfindMany({ where[33m:[39m { userId[33m:[39m user[33m.[39mid } 
+})[33m;[39m[0m
+
+      at Object.toBe (tests/logout.test.js:96:26)
+
+PASS tests/auth-utils.test.js
+PASS tests/error-handler.test.js
+PASS tests/health.test.js
+PASS tests/validation.test.js
+PASS tests/pagination.test.js
+
+Test Suites: 4 failed, 5 passed, 9 total
+Tests:       10 failed, 45 passed, 55 total
+Snapshots:   0 total
+Time:        6.228 s, estimated 7 s

@@ -45,17 +45,19 @@ function createApp() {
   // Compression.
   app.use(compression());
 
-  // Request logging (structured, safe — never logs sensitive data).
+// Request logging (structured, safe — never logs sensitive data).
   if (env.LOG_LEVEL !== 'silent') {
     app.use(
-      morgan((tokens, req, res) => {
-        return (
-          `[HTTP] requestId=${req.requestId} method=${tokens.method(req, res)} ` +
-          `path=${tokens.url(req, res)} status=${tokens.status(req, res)} ` +
-          `duration=${tokens['response-time'](req, res)}ms`
-        );
-      }),
-      { skip: (req, res) => res.statusCode < 400 },
+      morgan(
+        (tokens, req, res) => {
+          return (
+            `[HTTP] requestId=${req.requestId} method=${tokens.method(req, res)} ` +
+            `path=${tokens.url(req, res)} status=${tokens.status(req, res)} ` +
+            `duration=${tokens['response-time'](req, res)}ms`
+          );
+        },
+        { skip: (req, res) => res.statusCode < 400 },
+      ),
     );
   }
   // Log all requests via our structured logger in development.

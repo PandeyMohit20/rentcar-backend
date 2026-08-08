@@ -48,22 +48,22 @@ describe('Error handling', () => {
       return testApp;
     };
 
-    it('returns 401 when no token is provided', async () => {
+it('returns 401 when no token is provided', async () => {
       // There is no protected route in Phase 19, but we can verify the
       // middleware directly by mounting it on a test route.
       const res = await request(buildTestApp()).get('/protected');
       expect(res.status).toBe(401);
       expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe('UNAUTHORIZED');
+      expect(res.body.error.code).toBe('AUTH_UNAUTHORIZED');
     });
 
-    it('returns 401 for an invalid token with INVALID_TOKEN code', async () => {
+    it('returns 401 for an invalid token with AUTH_TOKEN_INVALID code', async () => {
       const res = await request(buildTestApp())
         .get('/protected')
         .set('Authorization', 'Bearer invalid.token.here');
       expect(res.status).toBe(401);
       expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe('INVALID_TOKEN');
+      expect(res.body.error.code).toBe('AUTH_TOKEN_INVALID');
     });
   });
 });
