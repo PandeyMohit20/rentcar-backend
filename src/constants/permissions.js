@@ -38,6 +38,7 @@ module.exports = {
   // Wallet
   wallet_view: 'wallet.view',
   wallet_transact: 'wallet.transact',
+  wallet_manage: 'wallet.manage',
 
   // Coupons
   coupons_view: 'coupons.view',
@@ -66,4 +67,8 @@ module.exports = {
 
   // Admin
   admin_all: 'admin.all',
+
+  // Settings
+  settings_view: 'settings.view',
+  settings_manage: 'settings.manage',
 };

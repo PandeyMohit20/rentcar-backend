@@ -45,6 +45,8 @@ const envSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
   COOKIE_SAME_SITE: z.enum(['lax', 'strict', 'none']).default('lax'),
+  // Optional cookie domain. Leave empty in development/single-origin setups.
+  COOKIE_DOMAIN: z.string().optional().default(''),
 
   // Test-only flag
   TEST_DATABASE_MOCK: z

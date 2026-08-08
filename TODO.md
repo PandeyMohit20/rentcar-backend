@@ -1,18 +1,46 @@
-# RentCar Backend — Phase 19 TODO
+# Phase 20 — Authentication + Authorization + RBAC
 
-1. [x] Scaffold project: package.json, .env.example, .env.test.example, .gitignore, .prettierrc, .eslintrc
-2. [x] Config layer: env.js, database.js, cors.js, logger.js
-3. [x] Errors: AppError.js, errorCodes.js, errorHandler.js, notFoundHandler.js, Prisma mapping
-4. [x] Utils: jwt.js, password.js, response.js, pagination.js, requestId.js, date.js, logger.js, transaction.js, sort.js
-5. [x] Constants: httpStatus.js, roles.js, permissions.js, bookingStatuses.js, paymentStatuses.js
-6. [x] Middlewares: requestId.js, authenticate.js, authorize.js, validate.js, notFound.js, errorHandler.js
-7. [x] Health module: controller, service, routes
-8. [x] Routes index.js (mount all /api/v1 routes, 501 placeholders)
-9. [x] Modules: scaffold all 21 module directories; auth foundation
-10. [x] app.js and server.js (bootstrap, graceful shutdown)
-11. [x] Docs: api.md, database-integration.md, security.md
-12. [x] Tests: health, error-handler, validation, pagination, auth-utils
-13. [x] README.md
-14. [ ] npm install, lint, format, test
-15. [ ] npm run dev — verify health endpoint, database health
-16. [ ] Git commit
+## Foundation
+- [ ] Update `src/config/env.js` to add `COOKIE_DOMAIN`
+- [ ] Update `.env.example` and `.env.test.example` with `COOKIE_DOMAIN`
+- [ ] Update `src/constants/roles.js` with full system roles
+- [ ] Update `src/constants/permissions.js` with settings/wallet permissions
+- [ ] Add auth error codes to `src/errors/errorCodes.js`
+
+## Shared services & middleware
+- [ ] Create `src/services/authorization.service.js`
+- [ ] Create `src/services/email/email.service.js`
+- [ ] Upgrade `src/middlewares/authenticate.js` (DB-backed, session/status checks)
+- [ ] Upgrade `src/middlewares/authorize.js` (use authorization.service)
+
+## Auth module
+- [ ] Create `src/modules/auth/auth.utils.js`
+- [ ] Update `src/modules/auth/constants.js`
+- [ ] Update `src/modules/auth/validator.js` (Zod schemas + centralized password policy)
+- [ ] Update `src/modules/auth/repository.js`
+- [ ] Update `src/modules/auth/service.js`
+- [ ] Update `src/modules/auth/controller.js`
+- [ ] Update `src/modules/auth/routes.js`
+
+## Docs
+- [ ] Create `src/docs/auth-api.md`
+- [ ] Create `src/docs/auth-security.md`
+- [ ] Create `src/docs/auth-rate-limits.md`
+- [ ] Create `src/docs/database-gaps.md`
+
+## Tests
+- [ ] Create test helper/mock for Prisma auth models
+- [ ] register.test.js
+- [ ] login.test.js
+- [ ] refresh.test.js
+- [ ] logout.test.js
+- [ ] password.test.js
+- [ ] rbac.test.js
+- [ ] otp.test.js
+- [ ] email-verification.test.js
+- [ ] session.test.js
+
+## Validation & commit
+- [ ] Run `npm install`, `npm run lint`, `npm test`, `npm run format`
+- [ ] Verify `GET /api/v1/health`
+- [ ] Git commit `feat(auth): implement authentication and RBAC`

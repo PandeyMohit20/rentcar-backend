@@ -16,18 +16,10 @@ const { env } = require('./env');
 let prisma;
 
 if (env.TEST_DATABASE_MOCK) {
-  // Minimal in-memory mock for tests that do not require a real DB.
-  prisma = {
-    $connect: async () => {},
-    $disconnect: async () => {},
-    $transaction: (fn) => (typeof fn === 'function' ? fn(prisma) : Promise.resolve(fn)),
-    $queryRaw: async () => [{ 1n: 1n }],
-    $queryRawUnsafe: async () => [{ 1n: 1n }],
-    user: {},
-    booking: {},
-    payment: {},
-    // Additional model stubs can be added as needed.
-  };
+  // Functional in-memory mock for tests. Never touches a real database.
+  // Supports the auth-related models used by the Phase 20 auth module.
+  const { createMockPrisma } = require('./database.mock');
+  prisma = createMockPrisma();
 } else {
   prisma = new PrismaClient({
     log: env.isDevelopment ? ['warn', 'error'] : ['error'],
