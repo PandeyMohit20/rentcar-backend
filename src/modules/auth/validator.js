@@ -28,15 +28,18 @@ const phoneField = z
 /**
  * Password schema that enforces the centralized password policy.
  */
-const passwordField = z.string().max(PASSWORD_POLICY.MAX_LENGTH).superRefine((val, ctx) => {
-  const result = validatePassword(val);
-  if (!result.valid) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: result.errors.join(' '),
-    });
-  }
-});
+const passwordField = z
+  .string()
+  .max(PASSWORD_POLICY.MAX_LENGTH)
+  .superRefine((val, ctx) => {
+    const result = validatePassword(val);
+    if (!result.valid) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: result.errors.join(' '),
+      });
+    }
+  });
 
 const registerSchema = z.object({
   name: z.string({ required_error: 'Name is required.' }).trim().min(2).max(255),

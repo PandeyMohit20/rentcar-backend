@@ -147,31 +147,12 @@ async function authenticate(req, res, next) {
         .catch(() => {});
     }
 
-    // Load roles and permissions.
-    const userRoles = await prisma.userRole.findMany({
-      where: { userId: user.id },
-      include: {
-        role: {
-          include: {
-            permissions: { include: { permission: true } },
-          },
-        },
-      },
-    });
-
-    const roles = userRoles.map((ur) => ur.role.name);
-    const permissions = [
-      ...new Set(
-        userRoles.flatMap((ur) => ur.role.permissions.map((rp) => rp.permission.name)),
-      ),
-    ];
-
     req.user = {
       sub: user.id,
       sessionId: payload.sessionId || null,
       email: user.email,
-      roles,
-      permissions,
+      roles: [],
+      permissions: [],
       status: user.status,
     };
     req.token = token;
@@ -182,4 +163,84 @@ async function authenticate(req, res, next) {
   }
 }
 
-module.exports = { authenticate };
+/**
+ * Token-only authentication: verifies the JWT and the user's account status,
+ * but does NOT validate session revocation. This makes idempotent operations
+ * such as logout work even after the session has been revoked.
+ */
+async function authenticateTokenOnly(req, res, next) {
+  const header = req.headers.authorization || req.headers.Authorization;
+
+  if (!header || !header.startsWith('Bearer ')) {
+    return next(
+      new AppError(
+        'Authentication required. Provide a Bearer token.',
+        httpStatus.UNAUTHORIZED,
+        errorCodes.AUTH_UNAUTHORIZED,
+      ),
+    );
+  }
+
+  const token = header.slice(7).trim();
+  if (!token) {
+    return next(
+      new AppError(
+        'Authentication required. Provide a valid token.',
+        httpStatus.UNAUTHORIZED,
+        errorCodes.AUTH_UNAUTHORIZED,
+      ),
+    );
+  }
+
+  let payload;
+  try {
+    payload = verifyAccessToken(token);
+  } catch (err) {
+    const isExpired = err.name === 'TokenExpiredError';
+    return next(
+      new AppError(
+        isExpired ? 'Token has expired.' : 'Invalid or expired token.',
+        httpStatus.UNAUTHORIZED,
+        isExpired ? errorCodes.AUTH_TOKEN_EXPIRED : errorCodes.AUTH_TOKEN_INVALID,
+      ),
+    );
+  }
+
+  try {
+    // Load the user from the database.
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+    });
+
+    if (!user || user.isDeleted) {
+      return next(
+        new AppError(
+          'Authentication required.',
+          httpStatus.UNAUTHORIZED,
+          errorCodes.AUTH_UNAUTHORIZED,
+        ),
+      );
+    }
+
+    // Only ACTIVE accounts can perform authenticated operations.
+    if (user.status !== USER_STATUS.ACTIVE) {
+      return next(accountStatusError(user.status));
+    }
+
+    req.user = {
+      sub: user.id,
+      sessionId: payload.sessionId || null,
+      email: user.email,
+      roles: [],
+      permissions: [],
+      status: user.status,
+    };
+    req.token = token;
+
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+}
+
+module.exports = { authenticate, authenticateTokenOnly };

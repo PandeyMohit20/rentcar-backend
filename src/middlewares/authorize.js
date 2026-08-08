@@ -4,11 +4,7 @@ const AppError = require('../errors/AppError');
 const errorCodes = require('../errors/errorCodes');
 const httpStatus = require('../constants/httpStatus');
 const { roles } = require('../constants/roles');
-const {
-  hasAnyPermission,
-  hasAnyRole,
-  isSuperAdmin,
-} = require('../services/authorization.service');
+const { hasAnyPermission, hasAnyRole, isSuperAdmin } = require('../services/authorization.service');
 
 /**
  * Authorization middleware.
@@ -25,9 +21,7 @@ const {
  */
 
 function authorize(requiredPermissions) {
-  const required = Array.isArray(requiredPermissions)
-    ? requiredPermissions
-    : [requiredPermissions];
+  const required = Array.isArray(requiredPermissions) ? requiredPermissions : [requiredPermissions];
   return (req, res, next) => {
     if (!req.user) {
       return next(

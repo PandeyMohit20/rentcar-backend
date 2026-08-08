@@ -45,7 +45,9 @@ Creates a new user account with the default `CUSTOMER` role.
 {
   "success": true,
   "message": "Registration successful",
-  "data": { "user": { "id": "...", "name": "John Doe", "email": "john@example.com", "roles": ["CUSTOMER"] } }
+  "data": {
+    "user": { "id": "...", "name": "John Doe", "email": "john@example.com", "roles": ["CUSTOMER"] }
+  }
 }
 ```
 
@@ -146,9 +148,15 @@ Returns the current user with roles and permissions.
   "message": "Current user",
   "data": {
     "user": {
-      "id": "...", "name": "John Doe", "email": "john@example.com",
-      "phone": "+919999999999", "status": "active", "emailVerifiedAt": null,
-      "roles": ["CUSTOMER"], "permissions": [], "profile": null
+      "id": "...",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "phone": "+919999999999",
+      "status": "active",
+      "emailVerifiedAt": null,
+      "roles": ["CUSTOMER"],
+      "permissions": [],
+      "profile": null
     }
   }
 }
@@ -189,7 +197,11 @@ Requests a password reset. Always returns a generic response (no account enumera
 **Success (200):**
 
 ```json
-{ "success": true, "message": "If the account exists, password reset instructions have been sent.", "data": {} }
+{
+  "success": true,
+  "message": "If the account exists, password reset instructions have been sent.",
+  "data": {}
+}
 ```
 
 ---
@@ -275,4 +287,3 @@ Verifies an OTP.
 ```
 
 **Errors:** `AUTH_OTP_INVALID` (400), `AUTH_OTP_EXPIRED` (400), `AUTH_OTP_MAX_ATTEMPTS` (400).
-

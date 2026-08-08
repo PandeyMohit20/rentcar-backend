@@ -99,9 +99,7 @@ const AuthRepository = {
     });
     const roles = userRoles.map((ur) => ur.role.name);
     const permissions = [
-      ...new Set(
-        userRoles.flatMap((ur) => ur.role.permissions.map((rp) => rp.permission.name)),
-      ),
+      ...new Set(userRoles.flatMap((ur) => ur.role.permissions.map((rp) => rp.permission.name))),
     ];
     return { roles, permissions };
   },
@@ -154,6 +152,15 @@ const AuthRepository = {
     return prisma.refreshToken.update({
       where: { id },
       data: { revokedAt: new Date() },
+    });
+  },
+
+  async findNewerRefreshTokenForUser(userId, _afterDate) {
+    // Any active (non-revoked) refresh token for the user indicates the
+    // presented revoked token was rotated into a newer one (i.e. reuse).
+    return prisma.refreshToken.findFirst({
+      where: { userId, revokedAt: null },
+      orderBy: { createdAt: 'desc' },
     });
   },
 

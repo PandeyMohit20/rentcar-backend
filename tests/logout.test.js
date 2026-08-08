@@ -4,13 +4,7 @@ const request = require('supertest');
 const { createApp } = require('../src/app');
 const { prisma } = require('../src/config/database');
 const { signAccessToken } = require('../src/utils/jwt');
-const {
-  resetStore,
-  seedRole,
-  seedUser,
-  seedSession,
-  seedRefreshToken,
-} = require('./helpers/auth');
+const { resetStore, seedRole, seedUser, seedSession, seedRefreshToken } = require('./helpers/auth');
 
 describe('Auth Logout', () => {
   let app;
@@ -53,7 +47,7 @@ describe('Auth Logout', () => {
     });
 
     it('is idempotent (logging out twice succeeds)', async () => {
-      const { user, session, accessToken } = await makeAuthedAgent();
+      const { user, accessToken } = await makeAuthedAgent();
       await seedRefreshToken(user.id);
 
       const first = await request(app)
@@ -78,7 +72,7 @@ describe('Auth Logout', () => {
     it('revokes all sessions and refresh tokens for the user', async () => {
       const user = await seedUser({});
       const { session: s1 } = await seedSession(user.id);
-      const { session: s2 } = await seedSession(user.id);
+      await seedSession(user.id);
       await seedRefreshToken(user.id);
       await seedRefreshToken(user.id);
 

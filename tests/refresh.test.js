@@ -5,13 +5,7 @@ const { createApp } = require('../src/app');
 const { prisma } = require('../src/config/database');
 const { signRefreshToken, verifyAccessToken } = require('../src/utils/jwt');
 const { hashSecret } = require('../src/modules/auth/auth.utils');
-const {
-  resetStore,
-  seedRole,
-  seedUser,
-  seedSession,
-  seedRefreshToken,
-} = require('./helpers/auth');
+const { resetStore, seedRole, seedUser, seedSession, seedRefreshToken } = require('./helpers/auth');
 
 describe('Auth Refresh (Token Rotation)', () => {
   let app;
@@ -43,9 +37,7 @@ describe('Auth Refresh (Token Rotation)', () => {
       const jwt = await makeStoredRefreshJwt(user, session);
       await seedRefreshToken(user.id, { tokenValue: jwt });
 
-      const res = await request(app)
-        .post('/api/v1/auth/refresh')
-        .send({ refreshToken: jwt });
+      const res = await request(app).post('/api/v1/auth/refresh').send({ refreshToken: jwt });
 
       expect(res.status).toBe(200);
       expect(res.body.data.accessToken).toBeDefined();
@@ -62,11 +54,9 @@ describe('Auth Refresh (Token Rotation)', () => {
       const jwt = await makeStoredRefreshJwt(user, session);
       await seedRefreshToken(user.id, { tokenValue: jwt });
 
-      const res = await request(app)
-        .post('/api/v1/auth/refresh')
-        .send({ refreshToken: jwt });
+      const res = await request(app).post('/api/v1/auth/refresh').send({ refreshToken: jwt });
 
-const decoded = verifyAccessToken(res.body.data.accessToken);
+      const decoded = verifyAccessToken(res.body.data.accessToken);
       expect(decoded.sub).toBe(user.id);
     });
 
@@ -84,9 +74,7 @@ const decoded = verifyAccessToken(res.body.data.accessToken);
       const jwt = await makeStoredRefreshJwt(user, session);
       await seedRefreshToken(user.id, { tokenValue: jwt, revoked: true });
 
-      const res = await request(app)
-        .post('/api/v1/auth/refresh')
-        .send({ refreshToken: jwt });
+      const res = await request(app).post('/api/v1/auth/refresh').send({ refreshToken: jwt });
       expect(res.status).toBe(401);
       expect(res.body.error.code).toBe('AUTH_REFRESH_TOKEN_REVOKED');
     });
@@ -98,15 +86,11 @@ const decoded = verifyAccessToken(res.body.data.accessToken);
       await seedRefreshToken(user.id, { tokenValue: jwt });
 
       // First refresh consumes (rotates) the old token.
-      const first = await request(app)
-        .post('/api/v1/auth/refresh')
-        .send({ refreshToken: jwt });
+      const first = await request(app).post('/api/v1/auth/refresh').send({ refreshToken: jwt });
       expect(first.status).toBe(200);
 
       // Reusing the old token must be detected as reuse.
-      const second = await request(app)
-        .post('/api/v1/auth/refresh')
-        .send({ refreshToken: jwt });
+      const second = await request(app).post('/api/v1/auth/refresh').send({ refreshToken: jwt });
       expect(second.status).toBe(401);
       expect(second.body.error.code).toBe('AUTH_REFRESH_TOKEN_REUSE');
     });
@@ -122,9 +106,7 @@ const decoded = verifyAccessToken(res.body.data.accessToken);
       // Seed an expired stored token (hash matches the JWT).
       await seedRefreshToken(user.id, { tokenValue: jwt, expired: true });
 
-      const res = await request(app)
-        .post('/api/v1/auth/refresh')
-        .send({ refreshToken: jwt });
+      const res = await request(app).post('/api/v1/auth/refresh').send({ refreshToken: jwt });
       expect(res.status).toBe(401);
       expect(res.body.error.code).toBe('AUTH_TOKEN_EXPIRED');
     });

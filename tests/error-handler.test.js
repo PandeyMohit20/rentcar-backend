@@ -48,7 +48,7 @@ describe('Error handling', () => {
       return testApp;
     };
 
-it('returns 401 when no token is provided', async () => {
+    it('returns 401 when no token is provided', async () => {
       // There is no protected route in Phase 19, but we can verify the
       // middleware directly by mounting it on a test route.
       const res = await request(buildTestApp()).get('/protected');

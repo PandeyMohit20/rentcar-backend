@@ -64,6 +64,13 @@ function cookieOptions({ maxAgeMs } = {}) {
  * Serialize a user for safe API responses.
  * Never returns passwordHash, OTP, refresh token hash, or internal fields.
  */
+function toIso(value) {
+  if (!value) return null;
+  // Prisma returns Date instances; the in-memory test mock may return ISO strings.
+  if (value instanceof Date) return value.toISOString();
+  return String(value);
+}
+
 function serializeUser(user, { roles = [], permissions = [], profile = null } = {}) {
   if (!user) return null;
   return {
@@ -72,15 +79,15 @@ function serializeUser(user, { roles = [], permissions = [], profile = null } = 
     email: user.email,
     phone: user.phone || null,
     status: user.status,
-    emailVerifiedAt: user.emailVerifiedAt ? user.emailVerifiedAt.toISOString() : null,
-    lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
-    createdAt: user.createdAt ? user.createdAt.toISOString() : null,
+    emailVerifiedAt: toIso(user.emailVerifiedAt),
+    lastLoginAt: toIso(user.lastLoginAt),
+    createdAt: toIso(user.createdAt),
     roles,
     permissions,
     profile: profile
       ? {
           verificationStatus: profile.verificationStatus || null,
-          dateOfBirth: profile.dateOfBirth ? profile.dateOfBirth.toISOString() : null,
+          dateOfBirth: toIso(profile.dateOfBirth),
           gender: profile.gender || null,
           bio: profile.bio || null,
         }

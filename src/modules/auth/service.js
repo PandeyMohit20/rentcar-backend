@@ -45,7 +45,9 @@ const genericResetResponse = 'If the account exists, password reset instructions
 
 /** Normalize email: trim + lowercase. */
 function normalizeEmail(email) {
-  return String(email || '').trim().toLowerCase();
+  return String(email || '')
+    .trim()
+    .toLowerCase();
 }
 
 /**
@@ -54,7 +56,9 @@ function normalizeEmail(email) {
  */
 function normalizePhone(phone) {
   if (!phone) return null;
-  return String(phone).replace(/[\s\-()]/g, '').trim();
+  return String(phone)
+    .replace(/[\s\-()]/g, '')
+    .trim();
 }
 
 function getClientInfo(req) {
@@ -266,7 +270,7 @@ const AuthService = {
     // Update lastLoginAt.
     await AuthRepository.updateLastLogin(user.id);
 
-// Issue token pair.
+    // Issue token pair.
     const tokens = await issueTokenPair(user, { sessionId: session.id });
 
     await emitEvent(user.id, AUTH_EVENTS.LOGIN_SUCCESS, ctx, 'success');
@@ -293,7 +297,11 @@ const AuthService = {
     const ctx = getClientInfo(req);
 
     if (!refreshToken) {
-      throw new AppError('Refresh token is required.', httpStatus.UNAUTHORIZED, errorCodes.AUTH_UNAUTHORIZED);
+      throw new AppError(
+        'Refresh token is required.',
+        httpStatus.UNAUTHORIZED,
+        errorCodes.AUTH_UNAUTHORIZED,
+      );
     }
 
     let payload;
@@ -325,6 +333,23 @@ const AuthService = {
     }
 
     if (stored.revokedAt) {
+      // Distinguish reuse from a plain revoked token: if a newer refresh token
+      // exists for this user (created after this token was revoked), the
+      // presented token was rotated and its reuse is a compromise indicator.
+      const newer = await AuthRepository.findNewerRefreshTokenForUser(
+        payload.sub,
+        stored.revokedAt,
+      );
+      if (newer) {
+        // Reuse detected — revoke the session and report reuse.
+        await AuthRepository.revokeSession(payload.sessionId).catch(() => {});
+        await emitEvent(payload.sub, AUTH_EVENTS.REFRESH_TOKEN_REUSE_DETECTED, ctx, 'fail');
+        throw new AppError(
+          'Refresh token has been reused.',
+          httpStatus.UNAUTHORIZED,
+          errorCodes.AUTH_REFRESH_TOKEN_REUSE,
+        );
+      }
       await AuthRepository.revokeSession(payload.sessionId).catch(() => {});
       await emitEvent(payload.sub, AUTH_EVENTS.REFRESH_TOKEN_REUSE_DETECTED, ctx, 'fail');
       throw new AppError(
@@ -474,7 +499,7 @@ const AuthService = {
     return { success: true };
   },
 
-// ---- FORGOT PASSWORD ----
+  // ---- FORGOT PASSWORD ----
   async forgotPassword({ email }, _req) {
     const normalized = normalizeEmail(email);
     const user = await AuthRepository.findUserByEmail(normalized);
@@ -601,7 +626,7 @@ const AuthService = {
     return { success: true };
   },
 
-async resendVerification({ email }, _req) {
+  async resendVerification({ email }, _req) {
     const normalized = normalizeEmail(email);
     const user = await AuthRepository.findUserByEmail(normalized);
 
@@ -666,11 +691,7 @@ async resendVerification({ email }, _req) {
     if (!user && normalizedPhone) user = await AuthRepository.findUserByPhone(normalizedPhone);
 
     if (!user) {
-      throw new AppError(
-        'Invalid OTP.',
-        httpStatus.BAD_REQUEST,
-        errorCodes.AUTH_OTP_INVALID,
-      );
+      throw new AppError('Invalid OTP.', httpStatus.BAD_REQUEST, errorCodes.AUTH_OTP_INVALID);
     }
 
     const otpRecord = await AuthRepository.findLatestOtp(user.id, purpose);

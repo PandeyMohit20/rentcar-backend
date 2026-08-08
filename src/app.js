@@ -45,7 +45,7 @@ function createApp() {
   // Compression.
   app.use(compression());
 
-// Request logging (structured, safe — never logs sensitive data).
+  // Request logging (structured, safe — never logs sensitive data).
   if (env.LOG_LEVEL !== 'silent') {
     app.use(
       morgan(

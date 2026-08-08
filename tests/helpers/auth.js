@@ -103,9 +103,7 @@ async function seedRefreshToken(
     data: {
       userId,
       tokenHash: hashSecret(value),
-      expiresAt: new Date(
-        Date.now() + (expired ? -1000 : 7 * 24 * 60 * 60 * 1000),
-      ),
+      expiresAt: new Date(Date.now() + (expired ? -1000 : 7 * 24 * 60 * 60 * 1000)),
       ...(revoked ? { revokedAt: new Date() } : {}),
     },
   });
@@ -113,7 +111,12 @@ async function seedRefreshToken(
 }
 
 /** Create an OTP for a user. */
-async function seedOtp(userId, purpose, otp, { expired = false, attempts = 0, verified = false } = {}) {
+async function seedOtp(
+  userId,
+  purpose,
+  otp,
+  { expired = false, attempts = 0, verified = false } = {},
+) {
   return prisma.otp.create({
     data: {
       userId,

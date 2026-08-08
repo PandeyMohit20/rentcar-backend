@@ -14,7 +14,7 @@ const PASSWORD_POLICY = {
   REQUIRE_SPECIAL: true,
 };
 
-const SPECIAL_CHARS = "!@#$%^&*(),.?\":{}|<>_\\-+=\\[\\];/'`~";
+const SPECIAL_CHARS = '!@#$%^&*(),.?":{}|<>_\\-+=\\[\\];/\'`~';
 const SPECIAL_CHAR_REGEX = new RegExp(`[${SPECIAL_CHARS}]`);
 
 /**

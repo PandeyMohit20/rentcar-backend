@@ -3,6 +3,7 @@
 const { Router } = require('express');
 const { validate } = require('../../middlewares/validate');
 const { authenticate } = require('../../middlewares/authenticate');
+const { authenticateTokenOnly } = require('../../middlewares/authenticate');
 const { AuthController } = require('./controller');
 const {
   registerSchema,
@@ -24,9 +25,10 @@ router.post('/register', validate({ body: registerSchema }), AuthController.regi
 router.post('/login', validate({ body: loginSchema }), AuthController.login);
 router.post('/refresh', validate({ body: refreshSchema }), AuthController.refresh);
 
-// Protected routes
-router.post('/logout', authenticate, AuthController.logout);
-router.post('/logout-all', authenticate, AuthController.logoutAll);
+// Protected routes. Logout uses token-only auth so it is idempotent even
+// after the session has been revoked by a previous logout.
+router.post('/logout', authenticateTokenOnly, AuthController.logout);
+router.post('/logout-all', authenticateTokenOnly, AuthController.logoutAll);
 router.get('/me', authenticate, AuthController.me);
 
 // Password management

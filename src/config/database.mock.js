@@ -24,8 +24,12 @@ function clone(value) {
 
 /** Deep simple equality for scalars (used by where matching). */
 function valuesEqual(a, b) {
-  if (a === null || a === undefined || b === null || b === undefined) {
-    return a === b;
+  const aNull = a === null || a === undefined;
+  const bNull = b === null || b === undefined;
+  // Treat null and undefined as equivalent so `where: { field: null }`
+  // matches records where the field is unset (undefined).
+  if (aNull || bNull) {
+    return aNull && bNull;
   }
   return a === b;
 }
@@ -39,7 +43,7 @@ function matchesWhere(record, where) {
         if (!value.in.includes(record[key])) return false;
         continue;
       }
-if (Object.prototype.hasOwnProperty.call(value, 'contains')) {
+      if (Object.prototype.hasOwnProperty.call(value, 'contains')) {
         if (!String(record[key] || '').includes(value.contains)) return false;
         continue;
       }
@@ -69,7 +73,12 @@ function applyInclude(record, include, store, modelName) {
   if (include.role) {
     const roleRecord = store.role.find((r) => r.id === record.roleId);
     if (roleRecord) {
-      out.role = applyInclude({ ...roleRecord }, include.role, store, 'role');
+      // Descend into the nested include map (e.g. role: { include: { permissions } }).
+      const nestedInclude =
+        include.role && typeof include.role === 'object' && include.role.include
+          ? include.role.include
+          : undefined;
+      out.role = applyInclude({ ...roleRecord }, nestedInclude, store, 'role');
     } else {
       out.role = null;
     }
@@ -215,7 +224,22 @@ function createMockPrisma() {
     $disconnect: async () => {},
     $queryRaw: async () => [{ 1n: 1n }],
     $queryRawUnsafe: async () => [{ 1n: 1n }],
-    $transaction: (fn) => (typeof fn === 'function' ? fn(prisma) : Promise.resolve(fn)),
+    $transaction: async (fn) => {
+      if (typeof fn !== 'function') return Promise.resolve(fn);
+
+      // Snapshot the store so we can roll back on error.
+      const snapshot = JSON.parse(JSON.stringify(store));
+      try {
+        return await fn(prisma);
+      } catch (err) {
+        // Restore the pre-transaction state.
+        Object.keys(store).forEach((key) => {
+          store[key].length = 0;
+          store[key].push(...snapshot[key]);
+        });
+        throw err;
+      }
+    },
     $store: store,
 
     user: createModel('user', store),
