@@ -5,6 +5,8 @@ const { env } = require('../config/env');
 const { healthRouter } = require('../health/health.routes');
 const { authRouter } = require('../modules/auth/routes');
 const { usersRouter } = require('../modules/users/routes');
+const { profilesRouter } = require('../modules/profiles/routes');
+const { addressesRouter } = require('../modules/addresses/routes');
 const { notImplementedRouter } = require('./notImplemented');
 
 const router = Router();
@@ -17,6 +19,8 @@ router.use('/auth', authRouter);
 
 // Mount users module (Phase 21 — user, profile, address, account management).
 router.use('/users', usersRouter);
+router.use('/profiles', profilesRouter);
+router.use('/addresses', addressesRouter);
 
 // Future modules — 501 Not Implemented placeholders.
 // Business logic for these belongs to later phases.

@@ -129,6 +129,37 @@ async function seedOtp(
   });
 }
 
+async function seedProfile(userId, data = {}) {
+  return prisma.profile.create({
+    data: {
+      userId,
+      verificationStatus: data.verificationStatus || null,
+      dateOfBirth: data.dateOfBirth || null,
+      gender: data.gender || null,
+      bio: data.bio || null,
+      profileImage: data.profileImage || null,
+    },
+  });
+}
+
+async function seedAddress(userId, data = {}) {
+  return prisma.address.create({
+    data: {
+      userId,
+      addressLine1: data.addressLine1 || '123 Test St',
+      addressLine2: data.addressLine2 || null,
+      city: data.city || 'Test City',
+      state: data.state || 'Test State',
+      country: data.country || 'Testland',
+      postalCode: data.postalCode || '12345',
+      latitude: data.latitude !== undefined ? data.latitude : null,
+      longitude: data.longitude !== undefined ? data.longitude : null,
+      addressType: data.addressType || 'home',
+      isDefault: data.isDefault === true,
+    },
+  });
+}
+
 module.exports = {
   resetStore,
   seedRole,
@@ -136,6 +167,8 @@ module.exports = {
   seedSession,
   seedRefreshToken,
   seedOtp,
+  seedProfile,
+  seedAddress,
   $store,
   prisma,
 };

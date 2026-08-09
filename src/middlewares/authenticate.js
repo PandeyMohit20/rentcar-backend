@@ -24,7 +24,9 @@ async function loadAuthContext(userId) {
   const permissions = [
     ...new Set(
       userRoles.flatMap((ur) =>
-        (ur.role.permissions || []).map((rp) => rp.permission && rp.permission.name).filter(Boolean),
+        (ur.role.permissions || [])
+          .map((rp) => rp.permission && rp.permission.name)
+          .filter(Boolean),
       ),
     ),
   ];
@@ -171,7 +173,7 @@ async function authenticate(req, res, next) {
         .catch(() => {});
     }
 
-// Resolve DB-backed roles + permissions for RBAC.
+    // Resolve DB-backed roles + permissions for RBAC.
     const authCtx = await loadAuthContext(user.id);
 
     req.user = {

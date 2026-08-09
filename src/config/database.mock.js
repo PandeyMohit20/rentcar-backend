@@ -150,7 +150,7 @@ function createModel(modelName, store, hooks = {}) {
       return applyInclude({ ...rec }, include, store, modelName);
     },
 
-async findMany({ where = {}, orderBy = [], skip = 0, take = 0, include } = {}) {
+    async findMany({ where = {}, orderBy = [], skip = 0, take = 0, include } = {}) {
       let records = list().filter((r) => matchesWhere(r, where));
       if (orderBy) {
         const order = Array.isArray(orderBy) ? orderBy : [orderBy];
@@ -264,7 +264,7 @@ function createMockPrisma() {
     },
     $store: store,
 
-user: createModel('user', store),
+    user: createModel('user', store),
     profile: createModel('profile', store),
     address: createModel('address', store),
     role: createModel('role', store),

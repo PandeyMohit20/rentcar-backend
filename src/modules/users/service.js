@@ -6,12 +6,7 @@ const errorCodes = require('../../errors/errorCodes');
 const httpStatus = require('../../constants/httpStatus');
 const { USER_STATUS, STATUS_TRANSITIONS, USER_EVENTS } = require('./constants');
 const { UsersRepository } = require('./repository');
-const {
-  toUserResponse,
-  toUserDetailResponse,
-  toUserListResponse,
-  toProfile,
-} = require('./mapper');
+const { toUserResponse, toUserDetailResponse, toUserListResponse, toProfile } = require('./mapper');
 const { parsePagination, computeTotalPages, buildMeta } = require('../../utils/pagination');
 const { parseSort } = require('../../utils/sort');
 const { logger } = require('../../config/logger');
@@ -180,7 +175,10 @@ const UsersService = {
     }
 
     const updated = await UsersRepository.updateUser(userId, updateData);
-    await emitEvent(userId, USER_EVENTS.USER_UPDATED, ctx, metadata, { entity: 'user', entityId: userId });
+    await emitEvent(userId, USER_EVENTS.USER_UPDATED, ctx, metadata, {
+      entity: 'user',
+      entityId: userId,
+    });
 
     const ctxAuth = await loadAuthContext(userId);
     const withProfile = await UsersRepository.findUserWithProfile(userId);
@@ -207,15 +205,26 @@ const UsersService = {
       throw new AppError('User not found.', httpStatus.NOT_FOUND, errorCodes.USER_NOT_FOUND);
     }
     if (!user.profile) {
-      throw new AppError('Profile not found.', httpStatus.NOT_FOUND, errorCodes.PROFILE_UPDATE_FAILED);
+      throw new AppError(
+        'Profile not found.',
+        httpStatus.NOT_FOUND,
+        errorCodes.PROFILE_UPDATE_FAILED,
+      );
     }
     const profileData = {};
-    if (data.dateOfBirth !== undefined) profileData.dateOfBirth = data.dateOfBirth ? new Date(data.dateOfBirth) : null;
+    if (data.dateOfBirth !== undefined)
+      profileData.dateOfBirth = data.dateOfBirth ? new Date(data.dateOfBirth) : null;
     if (data.gender !== undefined) profileData.gender = data.gender;
     if (data.bio !== undefined) profileData.bio = data.bio;
 
     const updated = await UsersRepository.updateProfile(userId, profileData);
-    await emitEvent(userId, USER_EVENTS.PROFILE_UPDATED, ctx, {}, { entity: 'profile', entityId: userId });
+    await emitEvent(
+      userId,
+      USER_EVENTS.PROFILE_UPDATED,
+      ctx,
+      {},
+      { entity: 'profile', entityId: userId },
+    );
     return toProfile(updated);
   },
 
@@ -223,14 +232,10 @@ const UsersService = {
   async listUsers(query, req) {
     const ctx = getClientInfo(req);
     const { page, limit, offset } = parsePagination(query);
-    const orderBy = parseSort(query.sortBy ? `${query.sortOrder === 'desc' ? '-' : ''}${query.sortBy}` : '-createdAt', [
-      'createdAt',
-      'updatedAt',
-      'name',
-      'email',
-      'status',
-      'lastLoginAt',
-    ]);
+    const orderBy = parseSort(
+      query.sortBy ? `${query.sortOrder === 'desc' ? '-' : ''}${query.sortBy}` : '-createdAt',
+      ['createdAt', 'updatedAt', 'name', 'email', 'status', 'lastLoginAt'],
+    );
 
     const where = { isDeleted: false };
 
@@ -333,7 +338,10 @@ const UsersService = {
     }
 
     const updated = await UsersRepository.updateUser(userId, updateData);
-    await emitEvent(actorId, USER_EVENTS.USER_UPDATED, ctx, metadata, { entity: 'user', entityId: userId });
+    await emitEvent(actorId, USER_EVENTS.USER_UPDATED, ctx, metadata, {
+      entity: 'user',
+      entityId: userId,
+    });
     const ctxAuth = await loadAuthContext(userId);
     return toUserResponse(updated, { roles: ctxAuth.roles, permissions: ctxAuth.permissions });
   },
@@ -374,34 +382,64 @@ const UsersService = {
       }
     });
 
-    await emitEvent(actorId, USER_EVENTS.USER_STATUS_CHANGED, ctx, { from: user.status, to: targetStatus }, { entity: 'user', entityId: userId });
+    await emitEvent(
+      actorId,
+      USER_EVENTS.USER_STATUS_CHANGED,
+      ctx,
+      { from: user.status, to: targetStatus },
+      { entity: 'user', entityId: userId },
+    );
     return toUserResponse({ ...user, status: targetStatus });
   },
 
   // ---- ADMIN: activate / deactivate / suspend / block ----
   async activate(actorId, userId, req) {
     return this.updateStatus(actorId, userId, USER_STATUS.ACTIVE, req).then(async (u) => {
-      await emitEvent(actorId, USER_EVENTS.USER_ACTIVATED, getClientInfo(req), {}, { entity: 'user', entityId: userId });
+      await emitEvent(
+        actorId,
+        USER_EVENTS.USER_ACTIVATED,
+        getClientInfo(req),
+        {},
+        { entity: 'user', entityId: userId },
+      );
       return u;
     });
   },
 
   async deactivate(actorId, userId, req) {
     return this.updateStatus(actorId, userId, USER_STATUS.INACTIVE, req).then(async (u) => {
-      await emitEvent(actorId, USER_EVENTS.USER_DEACTIVATED, getClientInfo(req), {}, { entity: 'user', entityId: userId });
+      await emitEvent(
+        actorId,
+        USER_EVENTS.USER_DEACTIVATED,
+        getClientInfo(req),
+        {},
+        { entity: 'user', entityId: userId },
+      );
       return u;
     });
   },
 
   async suspend(actorId, userId, req, reason) {
     const u = await this.updateStatus(actorId, userId, USER_STATUS.SUSPENDED, req);
-    await emitEvent(actorId, USER_EVENTS.USER_SUSPENDED, getClientInfo(req), { reason: reason || null }, { entity: 'user', entityId: userId });
+    await emitEvent(
+      actorId,
+      USER_EVENTS.USER_SUSPENDED,
+      getClientInfo(req),
+      { reason: reason || null },
+      { entity: 'user', entityId: userId },
+    );
     return u;
   },
 
   async block(actorId, userId, req) {
     const u = await this.updateStatus(actorId, userId, USER_STATUS.BLOCKED, req);
-    await emitEvent(actorId, USER_EVENTS.USER_BLOCKED, getClientInfo(req), {}, { entity: 'user', entityId: userId });
+    await emitEvent(
+      actorId,
+      USER_EVENTS.USER_BLOCKED,
+      getClientInfo(req),
+      {},
+      { entity: 'user', entityId: userId },
+    );
     return u;
   },
 
@@ -413,7 +451,11 @@ const UsersService = {
       throw new AppError('User not found.', httpStatus.NOT_FOUND, errorCodes.USER_NOT_FOUND);
     }
     if (user.isDeleted || user.status === USER_STATUS.DELETED) {
-      throw new AppError('User is already deleted.', httpStatus.CONFLICT, errorCodes.USER_ALREADY_DELETED);
+      throw new AppError(
+        'User is already deleted.',
+        httpStatus.CONFLICT,
+        errorCodes.USER_ALREADY_DELETED,
+      );
     }
     await assertSuperAdminProtected(userId);
 
@@ -432,7 +474,13 @@ const UsersService = {
       });
     });
 
-    await emitEvent(actorId, USER_EVENTS.USER_DELETED, ctx, {}, { entity: 'user', entityId: userId });
+    await emitEvent(
+      actorId,
+      USER_EVENTS.USER_DELETED,
+      ctx,
+      {},
+      { entity: 'user', entityId: userId },
+    );
     return { success: true };
   },
 
@@ -444,7 +492,11 @@ const UsersService = {
       throw new AppError('User not found.', httpStatus.NOT_FOUND, errorCodes.USER_NOT_FOUND);
     }
     if (user.isDeleted || user.status === USER_STATUS.DELETED) {
-      throw new AppError('User is already deleted.', httpStatus.CONFLICT, errorCodes.USER_ALREADY_DELETED);
+      throw new AppError(
+        'User is already deleted.',
+        httpStatus.CONFLICT,
+        errorCodes.USER_ALREADY_DELETED,
+      );
     }
     await assertSuperAdminProtected(userId);
 
@@ -463,7 +515,13 @@ const UsersService = {
       });
     });
 
-    await emitEvent(userId, USER_EVENTS.USER_DELETED, ctx, {}, { entity: 'user', entityId: userId });
+    await emitEvent(
+      userId,
+      USER_EVENTS.USER_DELETED,
+      ctx,
+      {},
+      { entity: 'user', entityId: userId },
+    );
     return { success: true };
   },
 

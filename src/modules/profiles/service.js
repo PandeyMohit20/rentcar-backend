@@ -15,7 +15,11 @@ const ProfileService = {
   async getProfile(userId) {
     const profile = await ProfileRepository.findProfileByUserId(userId);
     if (!profile) {
-      throw new AppError('Profile not found.', httpStatus.NOT_FOUND, errorCodes.PROFILE_UPDATE_FAILED);
+      throw new AppError(
+        'Profile not found.',
+        httpStatus.NOT_FOUND,
+        errorCodes.PROFILE_UPDATE_FAILED,
+      );
     }
     return toProfile(profile);
   },
@@ -23,10 +27,15 @@ const ProfileService = {
   async updateProfile(userId, data) {
     const existing = await ProfileRepository.findProfileByUserId(userId);
     if (!existing) {
-      throw new AppError('Profile not found.', httpStatus.NOT_FOUND, errorCodes.PROFILE_UPDATE_FAILED);
+      throw new AppError(
+        'Profile not found.',
+        httpStatus.NOT_FOUND,
+        errorCodes.PROFILE_UPDATE_FAILED,
+      );
     }
     const profileData = {};
-    if (data.dateOfBirth !== undefined) profileData.dateOfBirth = data.dateOfBirth ? new Date(data.dateOfBirth) : null;
+    if (data.dateOfBirth !== undefined)
+      profileData.dateOfBirth = data.dateOfBirth ? new Date(data.dateOfBirth) : null;
     if (data.gender !== undefined) profileData.gender = data.gender;
     if (data.bio !== undefined) profileData.bio = data.bio;
     if (data.profileImage !== undefined) profileData.profileImage = data.profileImage;

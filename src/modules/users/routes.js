@@ -40,7 +40,13 @@ router.get('/me/preferences', authenticate, UsersController.getPreferences);
 router.patch('/me/preferences', authenticate, UsersController.updatePreferences);
 
 // ---- Admin: user management ----
-router.get('/', authenticate, authorize('users.view'), validate({ query: listUsersSchema }), UsersController.listUsers);
+router.get(
+  '/',
+  authenticate,
+  authorize('users.view'),
+  validate({ query: listUsersSchema }),
+  UsersController.listUsers,
+);
 
 router.get(
   '/:userId',

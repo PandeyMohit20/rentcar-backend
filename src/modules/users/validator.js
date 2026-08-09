@@ -56,7 +56,11 @@ const updateUserSchema = z.object({
 
 /** Profile update. */
 const updateProfileSchema = z.object({
-  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'dateOfBirth must be YYYY-MM-DD.').optional().nullable(),
+  dateOfBirth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'dateOfBirth must be YYYY-MM-DD.')
+    .optional()
+    .nullable(),
   gender: genderEnum,
   bio: z.string().trim().max(1000).optional().nullable(),
 });

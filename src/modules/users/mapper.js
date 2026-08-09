@@ -45,7 +45,10 @@ function toUserResponse(user, { roles = [], permissions = [], profile = null } =
 }
 
 /** Map a user row to a safe admin-managed details DTO (includes addresses). */
-function toUserDetailResponse(user, { roles = [], permissions = [], profile = null, addresses = [] } = {}) {
+function toUserDetailResponse(
+  user,
+  { roles = [], permissions = [], profile = null, addresses = [] } = {},
+) {
   const base = toUserResponse(user, { roles, permissions, profile });
   return {
     ...base,
@@ -82,8 +85,12 @@ function toAddressResponse(address) {
     state: address.state || null,
     country: address.country,
     postalCode: address.postalCode || null,
-latitude: address.latitude !== null && address.latitude !== undefined ? String(address.latitude) : null,
-    longitude: address.longitude !== null && address.longitude !== undefined ? String(address.longitude) : null,
+    latitude:
+      address.latitude !== null && address.latitude !== undefined ? String(address.latitude) : null,
+    longitude:
+      address.longitude !== null && address.longitude !== undefined
+        ? String(address.longitude)
+        : null,
     addressType: address.addressType || 'home',
     isDefault: !!address.isDefault,
     createdAt: toIso(address.createdAt),

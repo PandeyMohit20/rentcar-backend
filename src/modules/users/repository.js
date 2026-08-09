@@ -64,7 +64,7 @@ const UsersRepository = {
     });
   },
 
-/** Find a role by name. */
+  /** Find a role by name. */
   async findRoleByName(name) {
     return prisma.role.findUnique({ where: { name } });
   },

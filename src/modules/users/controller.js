@@ -110,7 +110,12 @@ const UsersController = {
 
   async updateStatus(req, res, next) {
     try {
-      const user = await UsersService.updateStatus(req.user.sub, req.params.userId, req.body.status, req);
+      const user = await UsersService.updateStatus(
+        req.user.sub,
+        req.params.userId,
+        req.body.status,
+        req,
+      );
       return success(res, { message: 'User status updated successfully', data: { user } });
     } catch (err) {
       return next(err);
@@ -137,7 +142,12 @@ const UsersController = {
 
   async suspend(req, res, next) {
     try {
-      const user = await UsersService.suspend(req.user.sub, req.params.userId, req, req.body.reason);
+      const user = await UsersService.suspend(
+        req.user.sub,
+        req.params.userId,
+        req,
+        req.body.reason,
+      );
       return success(res, { message: 'User suspended successfully', data: { user } });
     } catch (err) {
       return next(err);
