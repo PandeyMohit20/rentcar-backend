@@ -150,9 +150,30 @@ function createModel(modelName, store, hooks = {}) {
       return applyInclude({ ...rec }, include, store, modelName);
     },
 
-    async findMany({ where = {}, include } = {}) {
-      const records = list().filter((r) => matchesWhere(r, where));
+async findMany({ where = {}, orderBy = [], skip = 0, take = 0, include } = {}) {
+      let records = list().filter((r) => matchesWhere(r, where));
+      if (orderBy) {
+        const order = Array.isArray(orderBy) ? orderBy : [orderBy];
+        for (const o of order.slice().reverse()) {
+          const [field, dir] = Object.entries(o)[0];
+          records = records.sort((a, b) => {
+            const av = a[field];
+            const bv = b[field];
+            if (av === bv) return 0;
+            if (av === undefined) return 1;
+            if (bv === undefined) return -1;
+            const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+            return dir === 'desc' ? -cmp : cmp;
+          });
+        }
+      }
+      if (Number.isInteger(skip) && skip > 0) records = records.slice(skip);
+      if (Number.isInteger(take) && take > 0) records = records.slice(0, take);
       return records.map((r) => applyInclude({ ...r }, include, store, modelName));
+    },
+
+    async count({ where = {} } = {}) {
+      return list().filter((r) => matchesWhere(r, where)).length;
     },
 
     async create({ data }) {
@@ -208,6 +229,7 @@ function createMockPrisma() {
   const store = {
     user: [],
     profile: [],
+    address: [],
     role: [],
     permission: [],
     rolePermission: [],
@@ -242,8 +264,9 @@ function createMockPrisma() {
     },
     $store: store,
 
-    user: createModel('user', store),
+user: createModel('user', store),
     profile: createModel('profile', store),
+    address: createModel('address', store),
     role: createModel('role', store),
     permission: createModel('permission', store),
     rolePermission: createModel('rolePermission', store),

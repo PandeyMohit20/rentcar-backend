@@ -8,6 +8,30 @@ const { prisma } = require('../config/database');
 const { USER_STATUS } = require('../modules/auth/constants');
 
 /**
+ * Load a user's roles + permissions for `req.user`.
+ * Resolves through the database-backed RBAC (UserRole -> Role -> permissions).
+ */
+async function loadAuthContext(userId) {
+  const userRoles = await prisma.userRole.findMany({
+    where: { userId },
+    include: {
+      role: {
+        include: { permissions: { include: { permission: true } } },
+      },
+    },
+  });
+  const roles = userRoles.map((ur) => ur.role.name);
+  const permissions = [
+    ...new Set(
+      userRoles.flatMap((ur) =>
+        (ur.role.permissions || []).map((rp) => rp.permission && rp.permission.name).filter(Boolean),
+      ),
+    ),
+  ];
+  return { roles, permissions };
+}
+
+/**
  * Authentication middleware.
  * Reads `Authorization: Bearer <access_token>`, verifies the JWT, then
  * validates the account status and (when present) the session against the
@@ -147,12 +171,15 @@ async function authenticate(req, res, next) {
         .catch(() => {});
     }
 
+// Resolve DB-backed roles + permissions for RBAC.
+    const authCtx = await loadAuthContext(user.id);
+
     req.user = {
       sub: user.id,
       sessionId: payload.sessionId || null,
       email: user.email,
-      roles: [],
-      permissions: [],
+      roles: authCtx.roles,
+      permissions: authCtx.permissions,
       status: user.status,
     };
     req.token = token;

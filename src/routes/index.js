@@ -4,6 +4,7 @@ const { Router } = require('express');
 const { env } = require('../config/env');
 const { healthRouter } = require('../health/health.routes');
 const { authRouter } = require('../modules/auth/routes');
+const { usersRouter } = require('../modules/users/routes');
 const { notImplementedRouter } = require('./notImplemented');
 
 const router = Router();
@@ -11,13 +12,15 @@ const router = Router();
 // Mount health routes (real implementation).
 router.use('/health', healthRouter);
 
-// Mount auth module (foundation only in Phase 19).
+// Mount auth module (Phases 19-20).
 router.use('/auth', authRouter);
+
+// Mount users module (Phase 21 — user, profile, address, account management).
+router.use('/users', usersRouter);
 
 // Future modules — 501 Not Implemented placeholders.
 // Business logic for these belongs to later phases.
 const futureModules = [
-  'users',
   'vendors',
   'cars',
   'bookings',

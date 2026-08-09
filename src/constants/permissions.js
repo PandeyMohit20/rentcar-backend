@@ -11,6 +11,12 @@ module.exports = {
   users_create: 'users.create',
   users_update: 'users.update',
   users_delete: 'users.delete',
+  users_status_update: 'users.status.update',
+  users_activate: 'users.activate',
+  users_deactivate: 'users.deactivate',
+  users_suspend: 'users.suspend',
+  users_block: 'users.block',
+  users_addresses_manage: 'users.addresses.manage',
 
   // Vendors
   vendors_view: 'vendors.view',
