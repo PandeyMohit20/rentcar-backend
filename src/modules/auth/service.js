@@ -1,3 +1,4 @@
+// It's only one day thanks messages at the same mobileso we can hello special rule so physics producers have to a battery of three lakhs five lakhs seven lakhs for I say one lakh so please contact please contact please contact'use strict';
 'use strict';
 
 const { prisma } = require('../../config/database');
@@ -182,23 +183,37 @@ const AuthService = {
     });
 
     // Create an email verification OTP foundation.
-    try {
-      const otp = generateOtp(OTP_CONFIG.LENGTH);
-      await AuthRepository.createOtp({
-        userId: result.id,
-        purpose: OTP_PURPOSE.EMAIL_VERIFICATION,
-        codeHash: hashOtp(otp),
-        expiresAt: new Date(Date.now() + VERIFICATION_TTL_MS),
-      });
-      await emailService.send({
-        to: result.email,
-        subject: 'Verify your email',
-        template: 'email_verification',
-        data: { otp },
-      });
-    } catch (err) {
-      logger.warn('Registration verification email skipped', { code: 'EMAIL_SEND_FAILED' });
-    }
+  try {
+  console.log('📧 REGISTER: creating verification OTP');
+
+  const otp = generateOtp(OTP_CONFIG.LENGTH);
+
+  console.log('📧 REGISTER: OTP generated');
+
+  await AuthRepository.createOtp({
+    userId: result.id,
+    purpose: OTP_PURPOSE.EMAIL_VERIFICATION,
+    codeHash: hashOtp(otp),
+    expiresAt: new Date(Date.now() + VERIFICATION_TTL_MS),
+  });
+
+  console.log('📧 REGISTER: OTP saved to database');
+
+  await emailService.send({
+    to: result.email,
+    subject: 'Verify your RentCar account',
+    template: 'email_verification',
+    data: { otp },
+  });
+
+  console.log('📧 REGISTER: emailService.send() completed');
+} catch (err) {
+  console.error('❌ REGISTER EMAIL ERROR:', err);
+  logger.warn('Registration verification email skipped', {
+    code: 'EMAIL_SEND_FAILED',
+    error: err.message,
+  });
+}
 
     await emitEvent(result.id, AUTH_EVENTS.REGISTER_SUCCESS, ctx, 'success');
 
