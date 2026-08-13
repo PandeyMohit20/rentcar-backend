@@ -87,10 +87,16 @@ const sendOtpSchema = z.object({
 
 const verifyOtpSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(255).optional(),
-  phone: phoneField,
+  phone: phoneField.optional(),
   purpose: z.enum(CLIENT_OTP_PURPOSES),
-  otp: z.string().min(4).max(8),
-});
+  otp: z.string().trim().min(4).max(8),
+}).refine(
+  (data) => Boolean(data.email || data.phone),
+  {
+    message: 'Either email or phone is required.',
+    path: ['email'],
+  },
+);
 
 module.exports = {
   registerSchema,
