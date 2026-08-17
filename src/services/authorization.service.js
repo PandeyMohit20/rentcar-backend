@@ -1,6 +1,6 @@
 'use strict';
 
-const { roles } = require('../constants/roles');
+const roles = require('../constants/roles');
 
 /**
  * Centralized authorization service.

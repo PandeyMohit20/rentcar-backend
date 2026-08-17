@@ -210,7 +210,7 @@ const AuthService = {
 } catch (err) {
   console.error('❌ REGISTER EMAIL ERROR:', err);
   logger.warn('Registration verification email skipped', {
-    code: 'EMAIL_SEND_FAILED',
+    code: 'EMAIL_SEND_FAILED', , came to me,camps deletes no cancelcame receptive trying invoice in a student one forty five six one zero six requests, charges last class, starting down started automatic rights paper fifty six starts process dispatch cancels tax total tax local payments joins in payments, kissty three options, list setting I started my rock. Sixty five ID six forty three fruit online requirements transdictional zero nine eight human charter ships promotion four seven hundred seventy shops, like my set of study, applied next hips, recently systic system, is a million of payments from matters four hundred. One hundred fifty seven thousand raised requester, black receipt, automatic tricky dispatchlow shina complete completelybarriers, recouncils consulations, collections payment adjusted gold,collections gate IT modern create kons in front of retailautomatic barzlong speed session. Receiva, where so different different papers receipts collectionstanding amount for a standard percent bars down in baking pleasant, few sables, facility charges ina comment request, alonga selected Italian tabled setting shot change, stock learners.
     error: err.message,
   });
 }
