@@ -8,6 +8,7 @@ const { usersRouter } = require('../modules/users/routes');
 const { profilesRouter } = require('../modules/profiles/routes');
 const { addressesRouter } = require('../modules/addresses/routes');
 const { notImplementedRouter } = require('./notImplemented');
+const { rolesRouter } = require('../modules/roles/routes');
 
 const router = Router();
 
@@ -21,6 +22,7 @@ router.use('/auth', authRouter);
 router.use('/users', usersRouter);
 router.use('/profiles', profilesRouter);
 router.use('/addresses', addressesRouter);
+router.use('/roles', rolesRouter);
 
 // Future modules — 501 Not Implemented placeholders.
 // Business logic for these belongs to later phases.
