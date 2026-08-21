@@ -198,7 +198,7 @@ const roleService = {
       return this._formatRole(role);
     }
 
-    const prisma = require('../../lib/prisma');
+    const { prisma } = require('../../config/database');
 
     const permissionIds = [];
 
