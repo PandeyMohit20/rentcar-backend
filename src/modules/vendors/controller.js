@@ -1,19 +1,22 @@
 'use strict';
 
 const vendorService = require('./service');
+
 const {
   success,
   created,
 } = require('../../utils/response');
 
 const VendorsController = {
-  // ------------------------------------------------------------
-  // Create Vendor
-  // ------------------------------------------------------------
+
+  // ============================================================
+  // Vendor
+  // ============================================================
 
   async create(req, res, next) {
     try {
-      const vendor = await vendorService.createVendor(req.body);
+      const vendor =
+        await vendorService.createVendor(req.body);
 
       return created(res, {
         message: 'Vendor created successfully.',
@@ -23,10 +26,6 @@ const VendorsController = {
       next(error);
     }
   },
-
-  // ------------------------------------------------------------
-  // List Vendors
-  // ------------------------------------------------------------
 
   async list(req, res, next) {
     try {
@@ -43,10 +42,6 @@ const VendorsController = {
     }
   },
 
-  // ------------------------------------------------------------
-  // Get Vendor
-  // ------------------------------------------------------------
-
   async getById(req, res, next) {
     try {
       const vendor =
@@ -62,10 +57,6 @@ const VendorsController = {
       next(error);
     }
   },
-
-  // ------------------------------------------------------------
-  // Update Vendor
-  // ------------------------------------------------------------
 
   async update(req, res, next) {
     try {
@@ -84,10 +75,6 @@ const VendorsController = {
     }
   },
 
-  // ------------------------------------------------------------
-  // Delete Vendor
-  // ------------------------------------------------------------
-
   async remove(req, res, next) {
     try {
       const result =
@@ -104,9 +91,9 @@ const VendorsController = {
     }
   },
 
-  // ------------------------------------------------------------
-  // Update Status
-  // ------------------------------------------------------------
+  // ============================================================
+  // Vendor Status
+  // ============================================================
 
   async updateStatus(req, res, next) {
     try {
@@ -117,17 +104,14 @@ const VendorsController = {
         );
 
       return success(res, {
-        message: 'Vendor status updated successfully.',
+        message:
+          'Vendor status updated successfully.',
         data: vendor,
       });
     } catch (error) {
       next(error);
     }
   },
-
-  // ------------------------------------------------------------
-  // Update Verification Status
-  // ------------------------------------------------------------
 
   async updateVerificationStatus(req, res, next) {
     try {
@@ -147,9 +131,9 @@ const VendorsController = {
     }
   },
 
-  // ------------------------------------------------------------
+  // ============================================================
   // Vendor Documents
-  // ------------------------------------------------------------
+  // ============================================================
 
   async listDocuments(req, res, next) {
     try {
@@ -159,7 +143,8 @@ const VendorsController = {
         );
 
       return success(res, {
-        message: 'Vendor documents fetched successfully.',
+        message:
+          'Vendor documents fetched successfully.',
         data: documents,
       });
     } catch (error) {
@@ -169,17 +154,98 @@ const VendorsController = {
 
   async createDocument(req, res, next) {
     try {
-      const document =
-        await vendorService.createDocument(
-          req.params.vendorId,
-          req.body,
+      const { vendorId } = req.params;
+
+      console.log(
+        '========== CREATE VENDOR DOCUMENT =========='
+      );
+
+      console.log('vendorId:', vendorId);
+      console.log('body:', req.body);
+      console.log('file:', req.file);
+
+      // ----------------------------------------------------------
+      // Validate uploaded file
+      // ----------------------------------------------------------
+
+      if (!req.file) {
+        const error = new Error(
+          'Document file is required. Field name must be "file".',
         );
 
+        error.statusCode = 400;
+        throw error;
+      }
+
+      // ----------------------------------------------------------
+      // Validate document type
+      // ----------------------------------------------------------
+
+      if (
+        !req.body.documentType ||
+        !req.body.documentType.trim()
+      ) {
+        const error = new Error(
+          'Document type is required.',
+        );
+
+        error.statusCode = 400;
+        throw error;
+      }
+
+      // ----------------------------------------------------------
+      // Generate document URL
+      // ----------------------------------------------------------
+
+      const documentUrl =
+        `/uploads/vendors/${req.file.filename}`;
+
+      // ----------------------------------------------------------
+      // Create database record
+      // ----------------------------------------------------------
+
+      const document =
+        await vendorService.createDocument(
+          vendorId,
+          {
+            documentType:
+              req.body.documentType.trim(),
+
+            documentUrl,
+
+            issuedAt:
+              req.body.issuedAt
+                ? req.body.issuedAt
+                : null,
+
+            expiresAt:
+              req.body.expiresAt
+                ? req.body.expiresAt
+                : null,
+
+            remarks:
+              req.body.remarks
+                ? req.body.remarks.trim()
+                : null,
+          },
+        );
+
+      console.log(
+        'Created document:',
+        document,
+      );
+
       return created(res, {
-        message: 'Vendor document created successfully.',
+        message:
+          'Vendor document uploaded successfully.',
         data: document,
       });
     } catch (error) {
+      console.error(
+        'CREATE VENDOR DOCUMENT ERROR:',
+        error,
+      );
+
       next(error);
     }
   },
@@ -192,13 +258,15 @@ const VendorsController = {
         );
 
       return success(res, {
-        message: 'Vendor document fetched successfully.',
+        message:
+          'Vendor document fetched successfully.',
         data: document,
       });
     } catch (error) {
       next(error);
     }
   },
+
 
   async updateDocument(req, res, next) {
     try {
@@ -209,7 +277,8 @@ const VendorsController = {
         );
 
       return success(res, {
-        message: 'Vendor document updated successfully.',
+        message:
+          'Vendor document updated successfully.',
         data: document,
       });
     } catch (error) {
@@ -225,7 +294,8 @@ const VendorsController = {
         );
 
       return success(res, {
-        message: 'Vendor document deleted successfully.',
+        message:
+          'Vendor document deleted successfully.',
         data: result,
       });
     } catch (error) {
@@ -233,9 +303,9 @@ const VendorsController = {
     }
   },
 
-  // ------------------------------------------------------------
+  // ============================================================
   // Vendor Bank Accounts
-  // ------------------------------------------------------------
+  // ============================================================
 
   async listBankAccounts(req, res, next) {
     try {
@@ -326,3 +396,5 @@ const VendorsController = {
 };
 
 module.exports = VendorsController;
+
+

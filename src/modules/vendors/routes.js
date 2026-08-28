@@ -1,20 +1,47 @@
 'use strict';
 
 const { Router } = require('express');
+
 const controller = require('./controller');
+
+const {
+  vendorDocumentUpload,
+} = require('../../middlewares/upload');
 
 const router = Router();
 
-// ------------------------------------------------------------
-// Vendor
-// ------------------------------------------------------------
+// ============================================================
+// VENDORS
+// ============================================================
 
-router.get('/', controller.list);
-router.post('/', controller.create);
+router.get(
+  '/',
+  controller.list,
+);
 
-router.get('/:vendorId', controller.getById);
-router.patch('/:vendorId', controller.update);
-router.delete('/:vendorId', controller.remove);
+router.post(
+  '/',
+  controller.create,
+);
+
+router.get(
+  '/:vendorId',
+  controller.getById,
+);
+
+router.patch(
+  '/:vendorId',
+  controller.update,
+);
+
+router.delete(
+  '/:vendorId',
+  controller.remove,
+);
+
+// ============================================================
+// VENDOR STATUS
+// ============================================================
 
 router.patch(
   '/:vendorId/status',
@@ -26,38 +53,44 @@ router.patch(
   controller.updateVerificationStatus,
 );
 
-// ------------------------------------------------------------
-// Vendor Documents
-// ------------------------------------------------------------
+// ============================================================
+// VENDOR DOCUMENTS
+// ============================================================
 
+// List vendor documents
 router.get(
   '/:vendorId/documents',
   controller.listDocuments,
 );
 
+// Upload vendor document
 router.post(
   '/:vendorId/documents',
+  vendorDocumentUpload.single('file'),
   controller.createDocument,
 );
 
+// Get single document
 router.get(
   '/documents/:documentId',
   controller.getDocument,
 );
 
+// Update document
 router.patch(
   '/documents/:documentId',
   controller.updateDocument,
 );
 
+// Delete document
 router.delete(
   '/documents/:documentId',
   controller.deleteDocument,
 );
 
-// ------------------------------------------------------------
-// Vendor Bank Accounts
-// ------------------------------------------------------------
+// ============================================================
+// VENDOR BANK ACCOUNTS
+// ============================================================
 
 router.get(
   '/:vendorId/bank-accounts',
@@ -84,4 +117,6 @@ router.delete(
   controller.deleteBankAccount,
 );
 
-module.exports = { vendorsRouter: router };
+module.exports = {
+  vendorsRouter: router,
+};

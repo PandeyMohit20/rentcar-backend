@@ -13,6 +13,7 @@ const { apiRouter, apiPrefix } = require('./routes');
 const { requestId } = require('./middlewares/requestId');
 const { notFoundHandler } = require('./middlewares/notFound');
 const { errorHandler } = require('./middlewares/errorHandler');
+const path = require('path');
 
 /**
  * Express application factory.
@@ -34,6 +35,13 @@ function createApp() {
 
   // CORS (configured origins, credentials enabled).
   app.use(cors(corsOptions));
+
+  app.use(
+  '/uploads',
+  express.static(
+    path.join(process.cwd(), 'uploads'),
+  ),
+);
 
   // Request body parsing with size limits (1mb).
   app.use(express.json({ limit: '1mb' }));
