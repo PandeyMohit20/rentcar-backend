@@ -1,4 +1,5 @@
 'use strict';
+/* eslint-disable no-console */
 process.env.NODE_ENV = 'test';
 process.env.PORT = '5100';
 process.env.API_PREFIX = '/api/v1';

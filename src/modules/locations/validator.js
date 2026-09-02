@@ -1,8 +1,10 @@
 'use strict';
-
-/**
- * Locations validation schemas (Zod).
- * Phase 19 placeholder. Implemented in a later phase.
- * Use: const { z } = require('zod');
- */
-module.exports = {};
+const { z } = require('zod');
+const statuses = ['active', 'inactive', 'pending', 'suspended', 'archived', 'rejected'];
+const coordinate = (min, max) => z.coerce.number().min(min).max(max).optional().nullable();
+const id = (key) => z.object({ [key]: z.string().uuid(`Invalid ${key}.`) });
+const listSchema = z.object({ page: z.coerce.number().int().positive().optional(), limit: z.coerce.number().int().positive().max(100).optional(), search: z.string().trim().max(255).optional(), status: z.enum(statuses).optional(), cityId: z.string().uuid().optional() });
+const cityCreate = z.object({ name: z.string().trim().min(1).max(100), state: z.string().trim().max(100).optional().nullable(), country: z.string().trim().length(2).optional(), code: z.string().trim().max(20).optional().nullable(), latitude: coordinate(-90,90), longitude: coordinate(-180,180), status: z.enum(statuses).optional() });
+const locationCreate = z.object({ cityId: z.string().uuid(), vendorId: z.string().uuid(), name: z.string().trim().min(1).max(255), address: z.string().trim().max(500).optional().nullable(), latitude: coordinate(-90,90), longitude: coordinate(-180,180), locationType: z.string().trim().max(50).optional(), status: z.enum(statuses).optional() });
+const branchCreate = z.object({ locationId: z.string().uuid(), vendorId: z.string().uuid(), name: z.string().trim().min(1).max(255), address: z.string().trim().max(500).optional().nullable(), phone: z.string().trim().max(50).optional().nullable(), email: z.string().trim().email().max(255).optional().nullable(), city: z.string().trim().max(100).optional().nullable(), isOperational: z.boolean().optional(), status: z.enum(statuses).optional() });
+module.exports = { listSchema, cityCreate, cityUpdate: cityCreate.partial(), locationCreate, locationUpdate: locationCreate.omit({cityId:true,vendorId:true}).partial(), branchCreate, branchUpdate: branchCreate.omit({locationId:true,vendorId:true}).partial(), cityId:id('cityId'), locationId:id('locationId'), branchId:id('branchId') };

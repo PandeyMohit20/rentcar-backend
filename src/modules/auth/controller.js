@@ -64,7 +64,6 @@ const AuthController = {
         message: 'Token refreshed successfully',
         data: {
           accessToken: result.accessToken,
-          refreshToken: result.refreshToken,
           sessionId: result.sessionId,
           expiresAt: result.expiresAt,
         },

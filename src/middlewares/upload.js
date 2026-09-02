@@ -56,15 +56,10 @@ const fileFilter = (req, file, cb) => {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   ];
 
-  console.log('========== VENDOR DOCUMENT UPLOAD ==========');
+  const allowedExtensions = new Set(['.pdf', '.jpg', '.jpeg', '.png', '.webp', '.doc', '.docx']);
+  const extension = path.extname(file.originalname).toLowerCase();
 
-  console.log('File:', {
-    fieldname: file.fieldname,
-    originalname: file.originalname,
-    mimetype: file.mimetype,
-  });
-
-  if (allowedMimeTypes.includes(file.mimetype)) {
+  if (allowedMimeTypes.includes(file.mimetype) && allowedExtensions.has(extension)) {
     return cb(null, true);
   }
 
@@ -90,6 +85,28 @@ const vendorDocumentUpload = multer({
   },
 });
 
+const carImageDir = path.join(process.cwd(), 'uploads', 'cars');
+if (!fs.existsSync(carImageDir)) fs.mkdirSync(carImageDir, { recursive: true });
+const carImageUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, carImageDir),
+    filename: (_req, file, cb) => cb(null, `${Date.now()}-${Math.random().toString(16).slice(2)}${path.extname(file.originalname).toLowerCase()}`),
+  }),
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext) && ['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) return cb(null, true);
+    const error = new Error('Only JPG, PNG, and WEBP car images are allowed.'); error.statusCode = 400; return cb(error);
+  },
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+const carDocumentDir = path.join(process.cwd(), 'uploads', 'private', 'cars');
+if (!fs.existsSync(carDocumentDir)) fs.mkdirSync(carDocumentDir, { recursive: true });
+const carDocumentUpload = multer({ storage: multer.diskStorage({ destination: (_r,_f,cb)=>cb(null,carDocumentDir), filename: (_r,file,cb)=>cb(null,`${Date.now()}-${Math.random().toString(16).slice(2)}${path.extname(file.originalname).toLowerCase()}`) }), fileFilter: (_r,file,cb)=>{const ext=path.extname(file.originalname).toLowerCase();if(['.pdf','.jpg','.jpeg','.png','.webp'].includes(ext)&&['application/pdf','image/jpeg','image/png','image/webp'].includes(file.mimetype))return cb(null,true);const e=new Error('Only PDF, JPG, PNG, and WEBP car documents are allowed.');e.statusCode=400;return cb(e);}, limits:{fileSize:10*1024*1024} });
+
 module.exports = {
   vendorDocumentUpload,
+  carImageUpload,
+  carImageDir,
+  carDocumentUpload,
+  carDocumentDir,
 };

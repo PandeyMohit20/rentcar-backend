@@ -14,6 +14,10 @@ const transporter = nodemailer.createTransport({
 });
 
 async function send(message) {
+  // Tests exercise auth flows without opening an SMTP connection.
+  if (process.env.NODE_ENV === 'test') {
+    return { accepted: [message.to], messageId: 'test-email' };
+  }
   const mail = {
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: message.to,

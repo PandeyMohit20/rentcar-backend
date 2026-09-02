@@ -10,6 +10,9 @@ const { addressesRouter } = require('../modules/addresses/routes');
 const { notImplementedRouter } = require('./notImplemented');
 const { rolesRouter } = require('../modules/roles/routes');
 const { vendorsRouter } = require('../modules/vendors/routes');
+const { locationsRouter } = require('../modules/locations/routes');
+const { carsRouter } = require('../modules/cars/routes');
+const { fleetRouter } = require('../modules/fleet/routes');
 
 const router = Router();
 
@@ -25,11 +28,13 @@ router.use('/profiles', profilesRouter);
 router.use('/addresses', addressesRouter);
 router.use('/roles', rolesRouter);
 router.use('/vendors', vendorsRouter);
+router.use('/locations', locationsRouter);
+router.use('/cars', carsRouter);
+router.use('/fleet', fleetRouter);
 
 // Future modules — 501 Not Implemented placeholders.
 // Business logic for these belongs to later phases.
 const futureModules = [
-  'cars',
   'bookings',
   'payments',
   'wallet',

@@ -1,8 +1,9 @@
 'use strict';
-
-/**
- * Cars validation schemas (Zod).
- * Phase 19 placeholder. Implemented in a later phase.
- * Use: const { z } = require('zod');
- */
-module.exports = {};
+const { z } = require('zod');
+const fuel=['petrol','diesel','cng','electric','hybrid','lpg']; const status=['available','booked','busy','maintenance','inactive','retired'];
+const list=z.object({page:z.coerce.number().int().positive().optional(),limit:z.coerce.number().int().positive().max(100).optional(),search:z.string().trim().max(255).optional(),brand:z.string().trim().max(100).optional(),fuelType:z.enum(fuel).optional(),transmission:z.enum(['automatic','manual']).optional(),seatingCapacity:z.coerce.number().int().positive().optional(),status:z.enum(status).optional(),vendorId:z.string().uuid().optional(),branchId:z.string().uuid().optional(),sortBy:z.enum(['createdAt','brand','model','manufacturingYear','seatingCapacity']).optional(),sortOrder:z.enum(['asc','desc']).optional()});
+const create=z.object({vendorId:z.string().uuid(),branchId:z.string().uuid(),registrationNumber:z.string().trim().min(2).max(50),vin:z.string().trim().max(50).optional().nullable(),brand:z.string().trim().min(1).max(100),model:z.string().trim().min(1).max(100),variant:z.string().trim().max(150).optional().nullable(),manufacturingYear:z.coerce.number().int().min(1900).max(new Date().getFullYear()+1),fuelType:z.enum(fuel).optional().nullable(),transmission:z.enum(['automatic','manual']).optional(),seatingCapacity:z.coerce.number().int().min(1).max(100).optional(),odometer:z.coerce.number().int().min(0).optional(),status:z.enum(status).optional()});
+const imageId=z.object({carId:z.string().uuid(),imageId:z.string().uuid()}); const featureId=z.object({carId:z.string().uuid(),featureId:z.string().uuid()});
+const featureCreate=z.object({name:z.string().trim().min(1).max(100),iconKey:z.string().trim().max(100).optional().nullable()});
+const documentId=z.object({carId:z.string().uuid(),documentId:z.string().uuid()}); const docBase=z.object({documentType:z.string().trim().min(1).max(100),issueDate:z.string().date().optional().nullable(),expiryDate:z.string().date().optional().nullable(),verificationStatus:z.enum(['unverified','pending','verified','rejected']).optional()}); const doc=docBase.refine(x=>!x.issueDate||!x.expiryDate||x.issueDate<=x.expiryDate,{message:'expiryDate must be after issueDate',path:['expiryDate']}); const docUpdate=docBase.partial().refine(x=>!x.issueDate||!x.expiryDate||x.issueDate<=x.expiryDate,{message:'expiryDate must be after issueDate',path:['expiryDate']});
+module.exports={list,create,update:create.omit({vendorId:true,branchId:true,registrationNumber:true}).partial(),id:z.object({carId:z.string().uuid()}),status:z.object({status:z.enum(status)}),imageId,featureId,featureCreate,featureUpdate:featureCreate.partial(),documentId,documentCreate:doc,documentUpdate:docUpdate};

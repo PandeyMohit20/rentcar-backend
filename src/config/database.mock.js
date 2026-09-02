@@ -19,7 +19,10 @@ const uuid = require('uuid');
 
 function clone(value) {
   if (value === undefined) return undefined;
-  return JSON.parse(JSON.stringify(value));
+  if (value instanceof Date) return new Date(value);
+  if (Array.isArray(value)) return value.map(clone);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, clone(item)]));
+  return value;
 }
 
 /** Deep simple equality for scalars (used by where matching). */
@@ -31,6 +34,7 @@ function valuesEqual(a, b) {
   if (aNull || bNull) {
     return aNull && bNull;
   }
+  if (a instanceof Date || b instanceof Date) return new Date(a).getTime() === new Date(b).getTime();
   return a === b;
 }
 
@@ -51,6 +55,14 @@ function matchesWhere(record, where) {
         if (record[key] !== value.equals) return false;
         continue;
       }
+      if (Object.prototype.hasOwnProperty.call(value, 'gte')) {
+        if (record[key] < value.gte) return false;
+        continue;
+      }
+      if (Object.prototype.hasOwnProperty.call(value, 'lte')) {
+        if (record[key] > value.lte) return false;
+        continue;
+      }
       // Fallback: strict equality against the object value.
       if (record[key] !== value) return false;
       continue;
@@ -67,7 +79,15 @@ function applyInclude(record, include, store, modelName) {
   const out = { ...record };
 
   if (include.profile) {
-    out.profile = store.profile.find((p) => p.userId === record.userId) || null;
+    out.profile = store.profile.find((p) => p.userId === record.id) || null;
+  }
+
+  if (modelName === 'car') {
+    if (include.images) out.images = store.carImage.filter((image) => image.carId === record.id);
+    if (include.features) out.features = store.carFeature.filter((feature) => feature.carId === record.id);
+    if (include.pricings) out.pricings = store.carPricing.filter((pricing) => pricing.carId === record.id);
+    if (include.branch) out.branch = null;
+    if (include.vendor) out.vendor = null;
   }
 
   if (include.role) {
@@ -191,7 +211,9 @@ function createModel(modelName, store, hooks = {}) {
     },
 
     async update({ where, data }) {
-      const record = list().find((r) => r.id === where.id);
+      const record = list().find((r) =>
+        Object.entries(where).every(([key, value]) => valuesEqual(r[key], value)),
+      );
       if (!record) {
         const err = new Error('Record not found');
         err.code = 'P2025';
@@ -205,6 +227,17 @@ function createModel(modelName, store, hooks = {}) {
       const targets = list().filter((r) => matchesWhere(r, where));
       targets.forEach((r) => Object.assign(r, clone(data), { updatedAt: new Date() }));
       return { count: targets.length };
+    },
+
+    async upsert({ where, create, update }) {
+      const record = list().find((r) =>
+        Object.entries(where).every(([key, value]) => valuesEqual(r[key], value)),
+      );
+      if (record) {
+        Object.assign(record, clone(update), { updatedAt: new Date() });
+        return { ...record };
+      }
+      return api.create({ data: create });
     },
 
     async delete({ where }) {
@@ -239,6 +272,15 @@ function createMockPrisma() {
     otp: [],
     auditLog: [],
     activityLog: [],
+    city: [],
+    location: [],
+    branch: [],
+    car: [],
+    carImage: [],
+    carFeature: [],
+    carDocument: [],
+    carPricing: [],
+    carAvailability: [],
   };
 
   const prisma = {
@@ -276,6 +318,15 @@ function createMockPrisma() {
     otp: createModel('otp', store),
     auditLog: createModel('auditLog', store),
     activityLog: createModel('activityLog', store),
+    city: createModel('city', store),
+    location: createModel('location', store),
+    branch: createModel('branch', store),
+    car: createModel('car', store),
+    carImage: createModel('carImage', store),
+    carFeature: createModel('carFeature', store),
+    carDocument: createModel('carDocument', store),
+    carPricing: createModel('carPricing', store),
+    carAvailability: createModel('carAvailability', store),
   };
 
   return prisma;

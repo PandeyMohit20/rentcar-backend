@@ -41,7 +41,8 @@ describe('Auth Refresh (Token Rotation)', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.data.accessToken).toBeDefined();
-      expect(res.body.data.refreshToken).toBeDefined();
+      expect(res.body.data.refreshToken).toBeUndefined();
+      expect(res.headers['set-cookie']).toBeDefined();
 
       // The old token should be revoked.
       const old = await prisma.refreshToken.findUnique({ where: { tokenHash: hashSecret(jwt) } });

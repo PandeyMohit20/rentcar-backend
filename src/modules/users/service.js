@@ -324,12 +324,13 @@ const UsersService = {
       if (phone) metadata.changed.push('phone');
     }
 
-    // Profile fields are managed via the profile module; admin update may
-    // accept dateOfBirth/gender but never password/tokens/roles here.
-    if (data.dateOfBirth !== undefined) updateData.dateOfBirth = data.dateOfBirth;
-    if (data.gender !== undefined) updateData.gender = data.gender;
+    const profileData = {};
+    if (data.dateOfBirth !== undefined) {
+      profileData.dateOfBirth = data.dateOfBirth ? new Date(data.dateOfBirth) : null;
+    }
+    if (data.gender !== undefined) profileData.gender = data.gender;
 
-    if (Object.keys(updateData).length === 0) {
+    if (Object.keys(updateData).length === 0 && Object.keys(profileData).length === 0) {
       throw new AppError(
         'No updatable fields provided.',
         httpStatus.BAD_REQUEST,
@@ -337,13 +338,23 @@ const UsersService = {
       );
     }
 
-    const updated = await UsersRepository.updateUser(userId, updateData);
+    await prisma.$transaction(async (tx) => {
+      if (Object.keys(updateData).length) await tx.user.update({ where: { id: userId }, data: updateData });
+      if (Object.keys(profileData).length) {
+        await tx.profile.upsert({ where: { userId }, create: { userId, ...profileData }, update: profileData });
+      }
+    });
     await emitEvent(actorId, USER_EVENTS.USER_UPDATED, ctx, metadata, {
       entity: 'user',
       entityId: userId,
     });
     const ctxAuth = await loadAuthContext(userId);
-    return toUserResponse(updated, { roles: ctxAuth.roles, permissions: ctxAuth.permissions });
+    const updated = await UsersRepository.findUserWithProfile(userId);
+    return toUserResponse(updated, {
+      roles: ctxAuth.roles,
+      permissions: ctxAuth.permissions,
+      profile: updated.profile,
+    });
   },
 
   // ---- ADMIN: status update ----

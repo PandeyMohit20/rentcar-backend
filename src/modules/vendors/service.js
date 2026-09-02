@@ -668,25 +668,20 @@ const VendorsService = {
   ) {
     await this._ensureVendorExists(vendorId);
 
-    if (data.isDefault) {
-      await VendorsRepository.clearDefaultBankAccounts(
-        vendorId,
-      );
-    }
-
-    return VendorsRepository.createBankAccount({
-      vendorId,
-      accountHolder: data.accountHolder,
-      bankName: data.bankName,
-      accountNumber: data.accountNumber,
-      ifscCode: data.ifscCode ?? null,
-      swiftCode: data.swiftCode ?? null,
-      currencyCode:
-        data.currencyCode ?? 'INR',
-      isDefault:
-        data.isDefault ?? false,
-      status:
-        data.status ?? 'active',
+    const { prisma } = require('../../config/database');
+    return prisma.$transaction(async (tx) => {
+      if (data.isDefault) {
+        await tx.vendorBankAccount.updateMany({
+          where: { vendorId, isDefault: true },
+          data: { isDefault: false },
+        });
+      }
+      return tx.vendorBankAccount.create({ data: {
+        vendorId, accountHolder: data.accountHolder, bankName: data.bankName,
+        accountNumber: data.accountNumber, ifscCode: data.ifscCode ?? null,
+        swiftCode: data.swiftCode ?? null, currencyCode: data.currencyCode ?? 'INR',
+        isDefault: data.isDefault ?? false, status: data.status ?? 'active',
+      } });
     });
   },
 
@@ -708,17 +703,16 @@ const VendorsService = {
       throw error;
     }
 
-    if (data.isDefault === true) {
-      await VendorsRepository.clearDefaultBankAccounts(
-        existingAccount.vendorId,
-      );
-    }
-
-    return VendorsRepository.updateBankAccount(
-      bankAccountId,
-      
-      data,
-    );
+    const { prisma } = require('../../config/database');
+    return prisma.$transaction(async (tx) => {
+      if (data.isDefault === true) {
+        await tx.vendorBankAccount.updateMany({
+          where: { vendorId: existingAccount.vendorId, isDefault: true },
+          data: { isDefault: false },
+        });
+      }
+      return tx.vendorBankAccount.update({ where: { id: bankAccountId }, data });
+    });
   },
 
   async deleteBankAccount(bankAccountId) {

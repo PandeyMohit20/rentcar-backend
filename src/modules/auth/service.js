@@ -7,7 +7,7 @@ const errorCodes = require('../../errors/errorCodes');
 const httpStatus = require('../../constants/httpStatus');
 const { DEFAULT_ROLE_NAME } = require('../../constants/roles');
 const { hashPassword, comparePassword } = require('../../utils/password');
-const { signAccessToken, verifyRefreshToken } = require('../../utils/jwt');
+const { signAccessToken, signRefreshToken, verifyRefreshToken } = require('../../utils/jwt');
 const { logger } = require('../../config/logger');
 const { emailService } = require('../../services/email/email.service');
 const { AuthRepository } = require('./repository');
@@ -102,7 +102,11 @@ async function issueTokenPair(user, { sessionId }) {
     type: 'access',
   });
 
-  const refreshToken = randomToken(48);
+  const refreshToken = signRefreshToken({
+    sub: user.id,
+    sessionId,
+    type: 'refresh',
+  });
   const refreshTokenHash = hashSecret(refreshToken);
   const refreshExpiresAt = new Date(Date.now() + durationToMs('7d'));
 
@@ -183,37 +187,25 @@ const AuthService = {
     });
 
     // Create an email verification OTP foundation.
-  try {
-  console.log('📧 REGISTER: creating verification OTP');
-
-  const otp = generateOtp(OTP_CONFIG.LENGTH);
-
-  console.log('📧 REGISTER: OTP generated');
-
-  await AuthRepository.createOtp({
-    userId: result.id,
-    purpose: OTP_PURPOSE.EMAIL_VERIFICATION,
-    codeHash: hashOtp(otp),
-    expiresAt: new Date(Date.now() + VERIFICATION_TTL_MS),
-  });
-
-  console.log('📧 REGISTER: OTP saved to database');
-
-  await emailService.send({
-    to: result.email,
-    subject: 'Verify your RentCar account',
-    template: 'email_verification',
-    data: { otp },
-  });
-
-  console.log('📧 REGISTER: emailService.send() completed');
-} catch (err) {
-  console.error('❌ REGISTER EMAIL ERROR:', err);
-  logger.warn('Registration verification email skipped', {
-    code: 'EMAIL_SEND_FAILED',
-        error: err.message,
-  });
-}
+    try {
+      const otp = generateOtp(OTP_CONFIG.LENGTH);
+      await AuthRepository.createOtp({
+        userId: result.id,
+        purpose: OTP_PURPOSE.EMAIL_VERIFICATION,
+        codeHash: hashOtp(otp),
+        expiresAt: new Date(Date.now() + VERIFICATION_TTL_MS),
+      });
+      await emailService.send({
+        to: result.email,
+        subject: 'Verify your RentCar account',
+        template: 'email_verification',
+        data: { otp },
+      });
+    } catch (err) {
+      logger.warn('Registration verification email skipped', {
+        code: 'EMAIL_SEND_FAILED',
+      });
+    }
 
     await emitEvent(result.id, AUTH_EVENTS.REGISTER_SUCCESS, ctx, 'success');
 
@@ -411,7 +403,11 @@ const AuthService = {
         data: { revokedAt: new Date() },
       });
 
-      const newRefresh = randomToken(48);
+      const newRefresh = signRefreshToken({
+        sub: user.id,
+        sessionId: payload.sessionId || null,
+        type: 'refresh',
+      });
       const newHash = hashSecret(newRefresh);
       const newExpiresAt = new Date(Date.now() + durationToMs('7d'));
 

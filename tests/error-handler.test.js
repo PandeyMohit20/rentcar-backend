@@ -25,11 +25,11 @@ describe('Error handling', () => {
   });
 
   describe('501 Not Implemented for future modules', () => {
-    it('returns 501 for /api/v1/users', async () => {
+    it('returns 401 for protected /api/v1/users', async () => {
       const res = await request(app).get('/api/v1/users');
-      expect(res.status).toBe(501);
+      expect(res.status).toBe(401);
       expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe('NOT_IMPLEMENTED');
+      expect(res.body.error.code).toBe('AUTH_UNAUTHORIZED');
     });
 
     it('returns 501 for /api/v1/bookings', async () => {
@@ -37,6 +37,26 @@ describe('Error handling', () => {
       expect(res.status).toBe(501);
       expect(res.body.success).toBe(false);
       expect(res.body.error.code).toBe('NOT_IMPLEMENTED');
+    });
+  });
+
+  describe('Vendor route protection', () => {
+    it('rejects unauthenticated vendor access', async () => {
+      const res = await request(app).get('/api/v1/vendors');
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe('AUTH_UNAUTHORIZED');
+    });
+  });
+
+  describe('Fleet image and feature protection', () => {
+    it('rejects unauthenticated car image requests', async () => {
+      const res = await request(app).get('/api/v1/fleet/00000000-0000-4000-8000-000000000001/images');
+      expect(res.status).toBe(401);
+    });
+
+    it('rejects unauthenticated car feature requests', async () => {
+      const res = await request(app).get('/api/v1/fleet/00000000-0000-4000-8000-000000000001/features');
+      expect(res.status).toBe(401);
     });
   });
 

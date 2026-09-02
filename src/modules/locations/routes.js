@@ -1,11 +1,7 @@
 'use strict';
-
-const { Router } = require('express');
-const { notImplementedRouter } = require('../../routes/notImplemented');
-
-const router = Router();
-
-// Phase 19 placeholder — business logic implemented in a later phase.
-router.use(notImplementedRouter('locations'));
-
-module.exports = { locationsRouter: router };
+const { Router } = require('express'); const { authenticate } = require('../../middlewares/authenticate'); const { authorize } = require('../../middlewares/authorize'); const { validate } = require('../../middlewares/validate'); const c = require('./controller'); const v = require('./validator');
+const router = Router(); const admin = (permission) => [authenticate, authorize(permission)];
+router.get('/cities',validate({query:v.listSchema}),c.listCities); router.post('/cities',...admin('locations.create'),validate({body:v.cityCreate}),c.createCity); router.get('/cities/:cityId',validate({params:v.cityId}),c.getCity); router.patch('/cities/:cityId',...admin('locations.update'),validate({params:v.cityId,body:v.cityUpdate}),c.updateCity); router.delete('/cities/:cityId',...admin('locations.delete'),validate({params:v.cityId}),c.deleteCity);
+router.get('/branches',validate({query:v.listSchema}),c.listBranches); router.post('/branches',...admin('locations.create'),validate({body:v.branchCreate}),c.createBranch); router.get('/branches/:branchId',validate({params:v.branchId}),c.getBranch); router.patch('/branches/:branchId',...admin('locations.update'),validate({params:v.branchId,body:v.branchUpdate}),c.updateBranch); router.delete('/branches/:branchId',...admin('locations.delete'),validate({params:v.branchId}),c.deleteBranch);
+router.get('/',validate({query:v.listSchema}),c.listLocations); router.post('/',...admin('locations.create'),validate({body:v.locationCreate}),c.createLocation); router.get('/:locationId',validate({params:v.locationId}),c.getLocation); router.patch('/:locationId',...admin('locations.update'),validate({params:v.locationId,body:v.locationUpdate}),c.updateLocation); router.delete('/:locationId',...admin('locations.delete'),validate({params:v.locationId}),c.deleteLocation);
+module.exports={locationsRouter:router};

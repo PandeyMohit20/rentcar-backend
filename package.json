@@ -12,7 +12,11 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "check": "node scripts/check.js",
-    "health": "node scripts/health.js"
+    "health": "node scripts/health.js",
+    "db:seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   },
   "keywords": [
     "rentcar",

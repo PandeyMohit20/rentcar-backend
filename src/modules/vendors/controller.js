@@ -1,11 +1,16 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
+
 const vendorService = require('./service');
 
 const {
   success,
   created,
 } = require('../../utils/response');
+
+const uploadDirectory = path.resolve(process.cwd(), 'uploads', 'vendors');
 
 const VendorsController = {
 
@@ -156,14 +161,6 @@ const VendorsController = {
     try {
       const { vendorId } = req.params;
 
-      console.log(
-        '========== CREATE VENDOR DOCUMENT =========='
-      );
-
-      console.log('vendorId:', vendorId);
-      console.log('body:', req.body);
-      console.log('file:', req.file);
-
       // ----------------------------------------------------------
       // Validate uploaded file
       // ----------------------------------------------------------
@@ -171,22 +168,6 @@ const VendorsController = {
       if (!req.file) {
         const error = new Error(
           'Document file is required. Field name must be "file".',
-        );
-
-        error.statusCode = 400;
-        throw error;
-      }
-
-      // ----------------------------------------------------------
-      // Validate document type
-      // ----------------------------------------------------------
-
-      if (
-        !req.body.documentType ||
-        !req.body.documentType.trim()
-      ) {
-        const error = new Error(
-          'Document type is required.',
         );
 
         error.statusCode = 400;
@@ -230,22 +211,12 @@ const VendorsController = {
           },
         );
 
-      console.log(
-        'Created document:',
-        document,
-      );
-
       return created(res, {
         message:
           'Vendor document uploaded successfully.',
         data: document,
       });
     } catch (error) {
-      console.error(
-        'CREATE VENDOR DOCUMENT ERROR:',
-        error,
-      );
-
       next(error);
     }
   },
@@ -267,7 +238,21 @@ const VendorsController = {
     }
   },
 
-
+  async downloadDocument(req, res, next) {
+    try {
+      const document = await vendorService.getDocument(req.params.documentId);
+      const filename = path.basename(document.documentUrl || '');
+      const filePath = path.resolve(uploadDirectory, filename);
+      if (!filename || !filePath.startsWith(`${uploadDirectory}${path.sep}`) || !fs.existsSync(filePath)) {
+        const error = new Error('Vendor document file not found.');
+        error.statusCode = 404;
+        throw error;
+      }
+      return res.download(filePath, filename);
+    } catch (error) {
+      return next(error);
+    }
+  },
   async updateDocument(req, res, next) {
     try {
       const document =
@@ -396,5 +381,3 @@ const VendorsController = {
 };
 
 module.exports = VendorsController;
-
-

@@ -79,6 +79,12 @@ const commissionRateField = z
 const idParamSchema = z.object({
   vendorId: z.string().uuid('Invalid vendor id.'),
 });
+const documentIdParamSchema = z.object({
+  documentId: z.string().uuid('Invalid vendor document id.'),
+});
+const bankAccountIdParamSchema = z.object({
+  bankAccountId: z.string().uuid('Invalid vendor bank account id.'),
+});
 
 /** Vendor list query filters. */
 const listVendorsSchema = z.object({
@@ -146,13 +152,44 @@ const updateVerificationStatusSchema = z.object({
   reason: z.string().trim().max(500).optional(),
 });
 
+const documentMetadataSchema = z.object({
+  documentType: z.string().trim().min(1).max(100),
+  issuedAt: z.string().datetime().optional().nullable(),
+  expiresAt: z.string().datetime().optional().nullable(),
+  remarks: z.string().trim().max(500).optional().nullable(),
+});
+
+const updateDocumentSchema = z.object({
+  documentType: z.string().trim().min(1).max(100).optional(),
+  status: z.enum(['pending', 'verified', 'rejected', 'expired']).optional(),
+  issuedAt: z.string().datetime().optional().nullable(),
+  expiresAt: z.string().datetime().optional().nullable(),
+  remarks: z.string().trim().max(500).optional().nullable(),
+});
+
+const bankAccountSchema = z.object({
+  accountHolder: z.string().trim().min(2).max(255),
+  bankName: z.string().trim().min(2).max(255),
+  accountNumber: z.string().trim().min(4).max(100),
+  ifscCode: z.string().trim().max(50).optional().nullable(),
+  swiftCode: z.string().trim().max(50).optional().nullable(),
+  currencyCode: z.string().trim().length(3).optional(),
+  isDefault: z.boolean().optional(),
+  status: z.enum(Object.values(VENDOR_STATUS)).optional(),
+});
+
 module.exports = {
   idParamSchema,
+  documentIdParamSchema,
+  bankAccountIdParamSchema,
   listVendorsSchema,
   createVendorSchema,
   updateVendorSchema,
   updateStatusSchema,
   updateVerificationStatusSchema,
+  documentMetadataSchema,
+  updateDocumentSchema,
+  bankAccountSchema,
   VENDOR_STATUS,
   VENDOR_VERIFICATION_STATUS,
 };
