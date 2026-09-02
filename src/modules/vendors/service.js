@@ -716,6 +716,7 @@ const VendorsService = {
 
     return VendorsRepository.updateBankAccount(
       bankAccountId,
+      
       data,
     );
   },
