@@ -13,6 +13,20 @@ const { vendorsRouter } = require('../modules/vendors/routes');
 const { locationsRouter } = require('../modules/locations/routes');
 const { carsRouter } = require('../modules/cars/routes');
 const { fleetRouter } = require('../modules/fleet/routes');
+const { availabilityRouter } = require('../modules/availability/routes');
+const { pricingRouter } = require('../modules/pricing/routes');
+const { bookingsRouter } = require('../modules/bookings/routes');
+const { paymentsRouter } = require('../modules/payments/routes');
+const { refundsRouter } = require('../modules/refunds/routes');
+const { RefundsController } = require('../modules/refunds/controller');
+const refundSchemas = require('../modules/refunds/validator');
+const { authenticate } = require('../middlewares/authenticate');
+const { validate } = require('../middlewares/validate');
+const { invoicesRouter } = require('../modules/invoices/routes');
+const { InvoicesController } = require('../modules/invoices/controller');
+const invoiceSchemas = require('../modules/invoices/validator');
+const { kycRouter } = require('../modules/kyc/routes');
+const { adminKycRouter } = require('../modules/adminKyc/routes');
 
 const router = Router();
 
@@ -31,12 +45,20 @@ router.use('/vendors', vendorsRouter);
 router.use('/locations', locationsRouter);
 router.use('/cars', carsRouter);
 router.use('/fleet', fleetRouter);
+router.use('/availability', availabilityRouter);
+router.use('/pricing', pricingRouter);
+router.use('/bookings', bookingsRouter);
+router.use('/payments', paymentsRouter);
+router.use('/refunds', refundsRouter);
+router.use('/invoices', invoicesRouter);
+router.use('/kyc', kycRouter);
+router.use('/admin/kyc', adminKycRouter);
+router.get('/bookings/:bookingId/refunds', authenticate, validate({ params: refundSchemas.bookingId }), RefundsController.listForBooking);
+router.get('/bookings/:bookingId/invoice', authenticate, validate({ params: invoiceSchemas.bookingId }), InvoicesController.getForBooking);
 
 // Future modules — 501 Not Implemented placeholders.
 // Business logic for these belongs to later phases.
 const futureModules = [
-  'bookings',
-  'payments',
   'wallet',
   'coupons',
   'reviews',

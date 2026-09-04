@@ -11,6 +11,16 @@ const VENDOR_SORT_FIELDS = [
   'verificationStatus',
 ];
 
+function toVendorDocumentResponse(document) {
+  if (!document) return document;
+  const safeDocument = { ...document };
+  delete safeDocument.documentUrl;
+  delete safeDocument.verifiedAt;
+  delete safeDocument.verifiedBy;
+  delete safeDocument.rejectionReason;
+  return safeDocument;
+}
+
 const VendorsService = {
   // ------------------------------------------------------------
   // Create
@@ -147,8 +157,7 @@ const VendorsService = {
 
       gstin: data.gstin ?? null,
 
-      verificationStatus:
-        data.verificationStatus ?? 'pending',
+      verificationStatus: 'pending',
 
       commissionRate:
         data.commissionRate ?? 10,
@@ -447,7 +456,6 @@ const VendorsService = {
       'website',
       'taxId',
       'gstin',
-      'verificationStatus',
       'commissionRate',
     ];
 
@@ -549,9 +557,8 @@ const VendorsService = {
   async listDocuments(vendorId) {
     await this._ensureVendorExists(vendorId);
 
-    return VendorsRepository.findDocumentsByVendorId(
-      vendorId,
-    );
+    const documents = await VendorsRepository.findDocumentsByVendorId(vendorId);
+    return documents.map(toVendorDocumentResponse);
   },
 
   async getDocument(documentId) {
@@ -575,7 +582,7 @@ const VendorsService = {
   async createDocument(vendorId, data = {}) {
     await this._ensureVendorExists(vendorId);
 
-    return VendorsRepository.createDocument({
+    const document = await VendorsRepository.createDocument({
       vendorId,
       documentType: data.documentType,
       documentUrl: data.documentUrl,
@@ -584,6 +591,7 @@ const VendorsService = {
       expiresAt: data.expiresAt ?? null,
       remarks: data.remarks ?? null,
     });
+    return toVendorDocumentResponse(document);
   },
 
   async updateDocument(documentId, data) {
@@ -601,10 +609,11 @@ const VendorsService = {
       throw error;
     }
 
-    return VendorsRepository.updateDocument(
+    const updated = await VendorsRepository.updateDocument(
       documentId,
       data,
     );
+    return toVendorDocumentResponse(updated);
   },
 
   async deleteDocument(documentId) {
@@ -782,7 +791,7 @@ const VendorsService = {
       updatedAt: vendor.updatedAt,
 
       documents:
-        vendor.documents || undefined,
+        vendor.documents?.map(toVendorDocumentResponse),
 
       bankAccounts:
         vendor.bankAccounts || undefined,
@@ -795,5 +804,7 @@ const VendorsService = {
     };
   },
 };
+
+VendorsService.toVendorDocumentResponse = toVendorDocumentResponse;
 
 module.exports = VendorsService;

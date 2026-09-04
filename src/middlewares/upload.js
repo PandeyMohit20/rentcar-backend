@@ -3,16 +3,13 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
-const uploadDir = path.join(
-  process.cwd(),
-  'uploads',
-  'vendors',
-);
+const vendorDocumentDir = path.join(process.cwd(), 'uploads', 'private', 'vendors');
 
 // Create upload directory if it does not exist
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, {
+if (!fs.existsSync(vendorDocumentDir)) {
+  fs.mkdirSync(vendorDocumentDir, {
     recursive: true,
   });
 }
@@ -23,7 +20,7 @@ if (!fs.existsSync(uploadDir)) {
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, uploadDir);
+    cb(null, vendorDocumentDir);
   },
 
   filename: (req, file, cb) => {
@@ -31,14 +28,7 @@ const storage = multer.diskStorage({
       .extname(file.originalname)
       .toLowerCase();
 
-    const safeName = path
-      .basename(file.originalname, ext)
-      .replace(/[^a-zA-Z0-9-_]/g, '_');
-
-    cb(
-      null,
-      `${Date.now()}-${safeName}${ext}`,
-    );
+    cb(null, `${crypto.randomUUID()}${ext}`);
   },
 });
 
@@ -103,10 +93,28 @@ const carDocumentDir = path.join(process.cwd(), 'uploads', 'private', 'cars');
 if (!fs.existsSync(carDocumentDir)) fs.mkdirSync(carDocumentDir, { recursive: true });
 const carDocumentUpload = multer({ storage: multer.diskStorage({ destination: (_r,_f,cb)=>cb(null,carDocumentDir), filename: (_r,file,cb)=>cb(null,`${Date.now()}-${Math.random().toString(16).slice(2)}${path.extname(file.originalname).toLowerCase()}`) }), fileFilter: (_r,file,cb)=>{const ext=path.extname(file.originalname).toLowerCase();if(['.pdf','.jpg','.jpeg','.png','.webp'].includes(ext)&&['application/pdf','image/jpeg','image/png','image/webp'].includes(file.mimetype))return cb(null,true);const e=new Error('Only PDF, JPG, PNG, and WEBP car documents are allowed.');e.statusCode=400;return cb(e);}, limits:{fileSize:10*1024*1024} });
 
+const userKycDocumentDir = path.join(process.cwd(), 'uploads', 'private', 'users');
+if (!fs.existsSync(userKycDocumentDir)) fs.mkdirSync(userKycDocumentDir, { recursive: true });
+const userKycDocumentUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, userKycDocumentDir),
+    filename: (_req, file, cb) => cb(null, `${crypto.randomUUID()}${path.extname(file.originalname).toLowerCase()}`),
+  }),
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (['.pdf', '.jpg', '.jpeg', '.png'].includes(ext) && ['application/pdf', 'image/jpeg', 'image/png'].includes(file.mimetype)) return cb(null, true);
+    const error = new Error('Only PDF, JPEG, and PNG KYC documents are allowed.'); error.statusCode = 400; return cb(error);
+  },
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
 module.exports = {
   vendorDocumentUpload,
+  vendorDocumentDir,
   carImageUpload,
   carImageDir,
   carDocumentUpload,
   carDocumentDir,
+  userKycDocumentUpload,
+  userKycDocumentDir,
 };

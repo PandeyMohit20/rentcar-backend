@@ -4,6 +4,8 @@ const { Router } = require('express');
 const { authenticate } = require('../../middlewares/authenticate');
 const { authorize } = require('../../middlewares/authorize');
 const { validate } = require('../../middlewares/validate');
+const { removeUploadedFile } = require('./documentStorage');
+const { vendorDocumentScope, vendorScope } = require('./documentAccess');
 
 const controller = require('./controller');
 
@@ -25,6 +27,20 @@ const {
 } = require('./validator');
 
 const router = Router();
+
+function validateVendorDocumentMetadata(req, res, next) {
+  const result = documentMetadataSchema.safeParse(req.body);
+  if (result.success) {
+    req.body = result.data;
+    return next();
+  }
+  removeUploadedFile(req.file);
+  const error = new Error('Validation failed.');
+  error.name = 'ZodError';
+  error.issues = result.error.issues;
+  error.statusCode = 422;
+  return next(error);
+}
 
 // ============================================================
 // VENDORS
@@ -85,7 +101,7 @@ router.patch(
 router.patch(
   '/:vendorId/verification-status',
   authenticate,
-  authorize('vendors.update'),
+  authorize('kyc.review'),
   validate({ params: idParamSchema, body: updateVerificationStatusSchema }),
   controller.updateVerificationStatus,
 );
@@ -98,8 +114,8 @@ router.patch(
 router.get(
   '/:vendorId/documents',
   authenticate,
-  authorize('vendors.view'),
   validate({ params: idParamSchema }),
+  vendorScope('vendors.view'),
   controller.listDocuments,
 );
 
@@ -107,18 +123,18 @@ router.get(
 router.post(
   '/:vendorId/documents',
   authenticate,
-  authorize('vendors.update'),
   validate({ params: idParamSchema }),
+  vendorScope('vendors.update'),
   vendorDocumentUpload.single('file'),
-  validate({ body: documentMetadataSchema }),
+  validateVendorDocumentMetadata,
   controller.createDocument,
 );
 
 router.get(
   '/documents/:documentId/download',
   authenticate,
-  authorize('vendors.view'),
   validate({ params: documentIdParamSchema }),
+  vendorDocumentScope('vendors.view'),
   controller.downloadDocument,
 );
 
@@ -126,8 +142,8 @@ router.get(
 router.get(
   '/documents/:documentId',
   authenticate,
-  authorize('vendors.view'),
   validate({ params: documentIdParamSchema }),
+  vendorDocumentScope('vendors.view'),
   controller.getDocument,
 );
 
@@ -135,8 +151,8 @@ router.get(
 router.patch(
   '/documents/:documentId',
   authenticate,
-  authorize('vendors.update'),
   validate({ params: documentIdParamSchema, body: updateDocumentSchema }),
+  vendorDocumentScope('vendors.update'),
   controller.updateDocument,
 );
 
@@ -144,8 +160,8 @@ router.patch(
 router.delete(
   '/documents/:documentId',
   authenticate,
-  authorize('vendors.delete'),
   validate({ params: documentIdParamSchema }),
+  vendorDocumentScope('vendors.delete'),
   controller.deleteDocument,
 );
 

@@ -1,9 +1,7 @@
 'use strict';
-
-/**
- * invoices service — business logic.
- * Phase 19 placeholder. Implemented in a later phase.
- */
-const InvoicesService = {};
-
-module.exports = { InvoicesService };
+const crypto = require('crypto'); const { prisma } = require('../../config/database');
+function dto(invoice) { return { id: invoice.id, invoiceNumber: invoice.invoiceNumber, bookingId: invoice.bookingId, subtotal: invoice.subtotal, tax: invoice.tax, discount: invoice.discount, total: invoice.total, currencyCode: invoice.currencyCode, status: invoice.status, invoiceDate: invoice.invoiceDate, dueDate: invoice.dueDate, createdAt: invoice.createdAt, updatedAt: invoice.updatedAt }; }
+async function ensureForPaidBooking(db, booking, payment) { const existing = await db.invoice.findUnique({ where: { bookingId: booking.id } }); if (existing) return existing; if (booking.status !== 'CONFIRMED' || payment.status !== 'succeeded') return null; const id = crypto.randomUUID(); try { return await db.invoice.create({ data: { id, invoiceNumber: `INV-${id}`, bookingId: booking.id, userId: booking.userId, vendorId: booking.vendorId, subtotal: booking.subtotal, tax: booking.tax || 0, discount: booking.discount || 0, total: booking.totalAmount, currencyCode: booking.currencyCode, status: 'issued', invoiceDate: new Date() } }); } catch (err) { if (err.code !== 'P2002') throw err; return db.invoice.findUnique({ where: { bookingId: booking.id } }); } }
+async function getMine(userId, id) { const invoice = await prisma.invoice.findUnique({ where: { id } }); return !invoice || invoice.userId !== userId ? null : dto(invoice); }
+async function getForBooking(userId, bookingId) { const booking = await prisma.booking.findFirst({ where: { id: bookingId, userId } }); if (!booking) return null; const invoice = await prisma.invoice.findUnique({ where: { bookingId } }); return invoice && dto(invoice); }
+module.exports = { ensureForPaidBooking, getMine, getForBooking, dto };

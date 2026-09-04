@@ -1,16 +1,15 @@
 'use strict';
 
 const fs = require('fs');
-const path = require('path');
 
 const vendorService = require('./service');
+const { AdminKycService } = require('../adminKyc/service');
+const { removeUploadedFile, resolveVendorDocumentFile } = require('./documentStorage');
 
 const {
   success,
   created,
 } = require('../../utils/response');
-
-const uploadDirectory = path.resolve(process.cwd(), 'uploads', 'vendors');
 
 const VendorsController = {
 
@@ -120,11 +119,12 @@ const VendorsController = {
 
   async updateVerificationStatus(req, res, next) {
     try {
-      const vendor =
-        await vendorService.updateVerificationStatus(
-          req.params.vendorId,
-          req.body.verificationStatus,
-        );
+      const vendor = await AdminKycService.reviewVendor(
+        req.user.sub,
+        req.params.vendorId,
+        req.body.verificationStatus === 'verified' ? 'verify' : 'reject',
+        req.body.reason,
+      );
 
       return success(res, {
         message:
@@ -178,8 +178,7 @@ const VendorsController = {
       // Generate document URL
       // ----------------------------------------------------------
 
-      const documentUrl =
-        `/uploads/vendors/${req.file.filename}`;
+      const documentUrl = `private/vendors/${req.file.filename}`;
 
       // ----------------------------------------------------------
       // Create database record
@@ -217,6 +216,7 @@ const VendorsController = {
         data: document,
       });
     } catch (error) {
+      removeUploadedFile(req.file);
       next(error);
     }
   },
@@ -231,7 +231,7 @@ const VendorsController = {
       return success(res, {
         message:
           'Vendor document fetched successfully.',
-        data: document,
+        data: vendorService.toVendorDocumentResponse(document),
       });
     } catch (error) {
       next(error);
@@ -240,15 +240,14 @@ const VendorsController = {
 
   async downloadDocument(req, res, next) {
     try {
-      const document = await vendorService.getDocument(req.params.documentId);
-      const filename = path.basename(document.documentUrl || '');
-      const filePath = path.resolve(uploadDirectory, filename);
-      if (!filename || !filePath.startsWith(`${uploadDirectory}${path.sep}`) || !fs.existsSync(filePath)) {
+      const document = req.vendorDocument || await vendorService.getDocument(req.params.documentId);
+      const resolved = resolveVendorDocumentFile(document.documentUrl);
+      if (!resolved || !fs.existsSync(resolved.filePath)) {
         const error = new Error('Vendor document file not found.');
         error.statusCode = 404;
         throw error;
       }
-      return res.download(filePath, filename);
+      return res.download(resolved.filePath, resolved.filename);
     } catch (error) {
       return next(error);
     }
@@ -273,10 +272,20 @@ const VendorsController = {
 
   async deleteDocument(req, res, next) {
     try {
+      const existingDocument = req.vendorDocument || await vendorService.getDocument(req.params.documentId);
       const result =
         await vendorService.deleteDocument(
           req.params.documentId,
         );
+
+      const resolved = resolveVendorDocumentFile(existingDocument.documentUrl);
+      if (resolved?.managed && fs.existsSync(resolved.filePath)) {
+        try {
+          fs.unlinkSync(resolved.filePath);
+        } catch {
+          // The database deletion remains authoritative; no storage reference is returned.
+        }
+      }
 
       return success(res, {
         message:

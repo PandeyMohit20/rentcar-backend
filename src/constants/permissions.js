@@ -24,6 +24,9 @@ module.exports = {
   vendors_update: 'vendors.update',
   vendors_delete: 'vendors.delete',
 
+  // KYC review
+  kyc_review: 'kyc.review',
+
   // Cars
   cars_view: 'cars.view',
   cars_create: 'cars.create',
@@ -35,6 +38,7 @@ module.exports = {
   bookings_create: 'bookings.create',
   bookings_update: 'bookings.update',
   bookings_cancel: 'bookings.cancel',
+  bookings_operate: 'bookings.operate',
 
   // Payments
   payments_view: 'payments.view',

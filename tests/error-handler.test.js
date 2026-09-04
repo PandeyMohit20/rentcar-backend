@@ -32,11 +32,11 @@ describe('Error handling', () => {
       expect(res.body.error.code).toBe('AUTH_UNAUTHORIZED');
     });
 
-    it('returns 501 for /api/v1/bookings', async () => {
+    it('returns 404 for unsupported /api/v1/bookings GET', async () => {
       const res = await request(app).get('/api/v1/bookings');
-      expect(res.status).toBe(501);
+      expect(res.status).toBe(404);
       expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe('NOT_IMPLEMENTED');
+      expect(res.body.error.code).toBe('ROUTE_NOT_FOUND');
     });
   });
 

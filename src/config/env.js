@@ -47,6 +47,13 @@ const envSchema = z.object({
   COOKIE_SAME_SITE: z.enum(['lax', 'strict', 'none']).default('lax'),
   // Optional cookie domain. Leave empty in development/single-origin setups.
   COOKIE_DOMAIN: z.string().optional().default(''),
+  QUOTE_TTL_MINUTES: z.coerce.number().int().positive().max(60).default(10),
+  QUOTE_SIGNING_SECRET: z.string().min(16).default('development_quote_signing_secret_change_me'),
+  BOOKING_HOLD_TTL_MINUTES: z.coerce.number().int().positive().max(120).default(15),
+  PAYMENT_PROVIDER: z.enum(['razorpay']).default('razorpay'),
+  RAZORPAY_KEY_ID: z.string().optional().default(''),
+  RAZORPAY_KEY_SECRET: z.string().optional().default(''),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional().default(''),
 
   // Test-only flag
   TEST_DATABASE_MOCK: z
@@ -66,6 +73,12 @@ if (!parsed.success) {
   console.error('❌ Invalid environment configuration. Application will not start.');
   // eslint-disable-next-line no-console
   console.error(issues.join('\n'));
+  process.exit(1);
+}
+
+if (parsed.data.NODE_ENV === 'production' && !process.env.QUOTE_SIGNING_SECRET) {
+  // eslint-disable-next-line no-console
+  console.error('❌ QUOTE_SIGNING_SECRET must be explicitly configured in production.');
   process.exit(1);
 }
 

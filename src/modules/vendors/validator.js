@@ -93,9 +93,6 @@ const listVendorsSchema = z.object({
   email: emailField.optional(),
   phone: phoneField,
   status: z.enum(Object.values(VENDOR_STATUS)).optional(),
-  verificationStatus: z
-    .enum(Object.values(VENDOR_VERIFICATION_STATUS))
-    .optional(),
   createdFrom: z.string().optional(),
   createdTo: z.string().optional(),
   page: z.coerce.number().int().positive().optional(),
@@ -114,9 +111,6 @@ const createVendorSchema = z.object({
   website: websiteField,
   taxId: taxIdField,
   gstin: gstinField,
-  verificationStatus: z
-    .enum(Object.values(VENDOR_VERIFICATION_STATUS))
-    .optional(),
   commissionRate: commissionRateField,
 });
 
@@ -146,7 +140,7 @@ const updateStatusSchema = z.object({
 
 /** Vendor verification status update schema. */
 const updateVerificationStatusSchema = z.object({
-  verificationStatus: z.enum(Object.values(VENDOR_VERIFICATION_STATUS), {
+  verificationStatus: z.enum(['verified', 'rejected'], {
     required_error: 'verificationStatus is required.',
   }),
   reason: z.string().trim().max(500).optional(),
@@ -161,7 +155,6 @@ const documentMetadataSchema = z.object({
 
 const updateDocumentSchema = z.object({
   documentType: z.string().trim().min(1).max(100).optional(),
-  status: z.enum(['pending', 'verified', 'rejected', 'expired']).optional(),
   issuedAt: z.string().datetime().optional().nullable(),
   expiresAt: z.string().datetime().optional().nullable(),
   remarks: z.string().trim().max(500).optional().nullable(),

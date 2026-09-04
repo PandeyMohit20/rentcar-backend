@@ -272,6 +272,10 @@ function createMockPrisma() {
     otp: [],
     auditLog: [],
     activityLog: [],
+    vendor: [],
+    vendorDocument: [],
+    userDocument: [],
+    vendorMember: [],
     city: [],
     location: [],
     branch: [],
@@ -281,6 +285,18 @@ function createMockPrisma() {
     carDocument: [],
     carPricing: [],
     carAvailability: [],
+    booking: [],
+    bookingItem: [],
+    bookingStatusHistory: [],
+    tripHistory: [],
+    tripExtension: [],
+    tripPhoto: [],
+    tripDamage: [],
+    payment: [],
+    paymentWebhookEvent: [],
+    refund: [],
+    refundWebhookEvent: [],
+    invoice: [],
   };
 
   const prisma = {
@@ -318,6 +334,10 @@ function createMockPrisma() {
     otp: createModel('otp', store),
     auditLog: createModel('auditLog', store),
     activityLog: createModel('activityLog', store),
+    vendor: createModel('vendor', store),
+    vendorDocument: createModel('vendorDocument', store),
+    userDocument: createModel('userDocument', store),
+    vendorMember: createModel('vendorMember', store),
     city: createModel('city', store),
     location: createModel('location', store),
     branch: createModel('branch', store),
@@ -327,6 +347,94 @@ function createMockPrisma() {
     carDocument: createModel('carDocument', store),
     carPricing: createModel('carPricing', store),
     carAvailability: createModel('carAvailability', store),
+    booking: createModel('booking', store),
+    bookingItem: createModel('bookingItem', store),
+    bookingStatusHistory: createModel('bookingStatusHistory', store),
+    tripHistory: createModel('tripHistory', store),
+    tripExtension: createModel('tripExtension', store),
+    tripPhoto: createModel('tripPhoto', store),
+    tripDamage: createModel('tripDamage', store),
+    payment: createModel('payment', store),
+    paymentWebhookEvent: createModel('paymentWebhookEvent', store),
+    refund: createModel('refund', store),
+    refundWebhookEvent: createModel('refundWebhookEvent', store),
+    invoice: createModel('invoice', store),
+  };
+
+  const createBooking = prisma.booking.create;
+  prisma.booking.create = async ({ data }) => {
+    if (data.idempotencyKey) {
+      const duplicate = store.booking.find(
+        (booking) => booking.userId === data.userId && booking.idempotencyKey === data.idempotencyKey,
+      );
+      if (duplicate) {
+        const err = new Error('Unique constraint failed');
+        err.code = 'P2002';
+        throw err;
+      }
+    }
+    return createBooking({ data });
+  };
+
+  const createVendorMember = prisma.vendorMember.create;
+  prisma.vendorMember.create = async ({ data }) => {
+    const duplicate = store.vendorMember.find(
+      (member) => member.vendorId === data.vendorId && member.userId === data.userId,
+    );
+    if (duplicate) {
+      const err = new Error('Unique constraint failed');
+      err.code = 'P2002';
+      throw err;
+    }
+    return createVendorMember({ data });
+  };
+
+  const createPayment = prisma.payment.create;
+  prisma.payment.create = async ({ data }) => {
+    const paymentData = {
+      currencyCode: 'INR',
+      paymentMethod: 'card',
+      status: 'pending',
+      operationalStatus: 'normal',
+      ...data,
+    };
+    for (const field of ['providerOrderId', 'providerPaymentId']) {
+      if (paymentData[field] && store.payment.some((payment) => payment[field] === paymentData[field])) {
+        const err = new Error('Unique constraint failed');
+        err.code = 'P2002';
+        throw err;
+      }
+    }
+    return createPayment({ data: paymentData });
+  };
+
+  const createPaymentWebhookEvent = prisma.paymentWebhookEvent.create;
+  prisma.paymentWebhookEvent.create = async ({ data }) => {
+    const duplicate = store.paymentWebhookEvent.find(
+      (event) => event.provider === data.provider && event.providerEventId === data.providerEventId,
+    );
+    if (duplicate) {
+      const err = new Error('Unique constraint failed');
+      err.code = 'P2002';
+      throw err;
+    }
+    return createPaymentWebhookEvent({ data });
+  };
+
+  const createRefund = prisma.refund.create;
+  prisma.refund.create = async ({ data }) => {
+    if (data.idempotencyKey && store.refund.some((refund) => refund.bookingId === data.bookingId && refund.idempotencyKey === data.idempotencyKey)) { const err = new Error('Unique constraint failed'); err.code = 'P2002'; throw err; }
+    return createRefund({ data });
+  };
+  const createRefundWebhookEvent = prisma.refundWebhookEvent.create;
+  prisma.refundWebhookEvent.create = async ({ data }) => {
+    if (store.refundWebhookEvent.some((event) => event.provider === data.provider && event.providerEventId === data.providerEventId)) { const err = new Error('Unique constraint failed'); err.code = 'P2002'; throw err; }
+    return createRefundWebhookEvent({ data });
+  };
+  const createInvoice = prisma.invoice.create;
+  prisma.invoice.create = async ({ data }) => {
+    if (data.bookingId && store.invoice.some((invoice) => invoice.bookingId === data.bookingId)) { const err = new Error('Unique constraint failed'); err.code = 'P2002'; throw err; }
+    return createInvoice({ data });
   };
 
   return prisma;

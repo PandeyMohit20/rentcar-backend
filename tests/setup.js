@@ -20,3 +20,6 @@ process.env.LOG_LEVEL = 'silent';
 process.env.COOKIE_SECURE = 'false';
 process.env.COOKIE_SAME_SITE = 'lax';
 process.env.TEST_DATABASE_MOCK = 'true';
+process.env.QUOTE_TTL_MINUTES = '10';
+process.env.QUOTE_SIGNING_SECRET = 'test_quote_signing_secret_0123456789';
+process.env.BOOKING_HOLD_TTL_MINUTES = '15';

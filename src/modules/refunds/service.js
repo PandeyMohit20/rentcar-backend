@@ -1,9 +1,23 @@
 'use strict';
 
-/**
- * refunds service — business logic.
- * Phase 19 placeholder. Implemented in a later phase.
- */
-const RefundsService = {};
+const crypto = require('crypto');
+const { prisma } = require('../../config/database');
+const { minorUnits } = require('../payments/service');
+const razorpay = require('../payments/providers/razorpay');
+const failureReason = (entity) => String(entity.error_description || entity.error_code || 'Razorpay refund failed.').replace(/[\r\n\t]/g, ' ').slice(0, 500);
+const currencyMatches = (a, b) => String(a || '').toUpperCase() === String(b || '').toUpperCase();
 
-module.exports = { RefundsService };
+async function reconcileProcessed(tx, refundId) {
+  const refund = await tx.refund.findUnique({ where: { id: refundId } }); const payment = refund && await tx.payment.findUnique({ where: { id: refund.paymentId } }); const booking = refund && await tx.booking.findUnique({ where: { id: refund.bookingId } });
+  if (!refund || !payment || !booking || payment.bookingId !== booking.id) return false;
+  if (refund.status !== 'succeeded') await tx.refund.update({ where: { id: refund.id }, data: { status: 'succeeded', processedAt: new Date() } });
+  if (payment.status !== 'refunded') await tx.payment.update({ where: { id: payment.id }, data: { status: 'refunded' } });
+  if (booking.paymentStatus !== 'refunded') await tx.booking.update({ where: { id: booking.id }, data: { paymentStatus: 'refunded' } });
+  return true;
+}
+async function reconcileProviderResult(refund, result) { return prisma.$transaction(async (tx) => { const saved = await tx.refund.findUnique({ where: { id: refund.id } }); if (!saved || (saved.providerReference && saved.providerReference !== result.providerRefundId)) return null; if (!saved.providerReference && result.providerRefundId) await tx.refund.update({ where: { id: saved.id }, data: { providerReference: result.providerRefundId } }); if (result.status === 'processed') return reconcileProcessed(tx, saved.id); if (result.status === 'failed' && saved.status !== 'succeeded') await tx.refund.update({ where: { id: saved.id }, data: { status: 'failed', failedAt: new Date(), failureReason: 'Razorpay refund failed.' } }); return true; }); }
+async function processWebhook({ eventId, rawBody }) { const event = razorpay.parseWebhookEvent(rawBody); const entity = event.payload?.refund?.entity; const payloadHash = crypto.createHash('sha256').update(rawBody).digest('hex'); try { return await prisma.$transaction(async (tx) => { const webhook = await tx.refundWebhookEvent.create({ data: { provider: 'razorpay', providerEventId: eventId, eventType: String(event.event || 'unknown'), payloadHash } }); const done = async (refundId, result) => { await tx.refundWebhookEvent.update({ where: { id: webhook.id }, data: { refundId, processedAt: new Date() } }); return result; }; if (!entity?.id) return done(null, { ignored: true }); const refund = await tx.refund.findFirst({ where: { providerReference: entity.id } }); if (!refund) return done(null, { ignored: true }); const payment = await tx.payment.findUnique({ where: { id: refund.paymentId } }); if (!payment || entity.payment_id !== payment.providerPaymentId || Number(entity.amount) !== minorUnits(refund.amount) || !currencyMatches(entity.currency, refund.currencyCode) || !currencyMatches(entity.currency, payment.currencyCode)) return done(refund.id, { reconciliationMismatch: true }); if (event.event === 'refund.processed') return done(refund.id, { processed: await reconcileProcessed(tx, refund.id) }); if (event.event === 'refund.failed') { if (refund.status !== 'succeeded') await tx.refund.update({ where: { id: refund.id }, data: { status: 'failed', failedAt: new Date(), failureReason: failureReason(entity) } }); return done(refund.id, { failed: true }); } return done(refund.id, { created: true }); }); } catch (err) { if (err.code === 'P2002') return { duplicate: true }; throw err; } }
+function dto(refund) { return { id: refund.id, bookingId: refund.bookingId, paymentId: refund.paymentId, amount: refund.amount, currencyCode: refund.currencyCode, provider: refund.provider, providerReference: refund.providerReference, status: refund.status, reason: refund.reason, processedAt: refund.processedAt, failedAt: refund.failedAt, failureReason: refund.failureReason, createdAt: refund.createdAt, updatedAt: refund.updatedAt }; }
+async function getMine(userId, refundId) { const refund = await prisma.refund.findUnique({ where: { id: refundId } }); if (!refund || !await prisma.booking.findFirst({ where: { id: refund.bookingId, userId } })) return null; return dto(refund); }
+async function listMine(userId, bookingId) { const booking = await prisma.booking.findFirst({ where: { id: bookingId, userId } }); if (!booking) return null; return (await prisma.refund.findMany({ where: { bookingId }, orderBy: { createdAt: 'desc' } })).map(dto); }
+module.exports = { processWebhook, reconcileProviderResult, getMine, listMine };

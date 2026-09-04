@@ -1,11 +1,8 @@
 'use strict';
-
-const { Router } = require('express');
-const { notImplementedRouter } = require('../../routes/notImplemented');
-
+const { Router } = require('express'); const { authenticate } = require('../../middlewares/authenticate'); const { validate } = require('../../middlewares/validate'); const { PaymentsController } = require('./controller'); const schemas = require('./validator');
 const router = Router();
-
-// Phase 19 placeholder — business logic implemented in a later phase.
-router.use(notImplementedRouter('payments'));
-
+router.post('/orders', authenticate, validate({ body: schemas.order }), PaymentsController.createOrder);
+router.post('/verify', authenticate, validate({ body: schemas.verify }), PaymentsController.verify);
+router.post('/webhook/razorpay', PaymentsController.webhook);
+router.get('/:paymentId', authenticate, validate({ params: schemas.paymentId }), PaymentsController.get);
 module.exports = { paymentsRouter: router };

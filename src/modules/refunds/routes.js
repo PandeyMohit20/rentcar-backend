@@ -1,11 +1,12 @@
 'use strict';
 
 const { Router } = require('express');
-const { notImplementedRouter } = require('../../routes/notImplemented');
+const { authenticate } = require('../../middlewares/authenticate');
+const { validate } = require('../../middlewares/validate');
+const { RefundsController } = require('./controller');
+const schemas = require('./validator');
 
 const router = Router();
-
-// Phase 19 placeholder — business logic implemented in a later phase.
-router.use(notImplementedRouter('refunds'));
+router.get('/:refundId', authenticate, validate({ params: schemas.refundId }), RefundsController.getMine);
 
 module.exports = { refundsRouter: router };

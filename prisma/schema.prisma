@@ -63,6 +63,13 @@ enum DocumentStatusEnum {
   expired
 }
 
+enum UserDocumentTypeEnum {
+  driving_license
+  pan
+  identity_proof
+  address_proof
+}
+
 enum FuelTypeEnum {
   petrol
   diesel
@@ -111,6 +118,12 @@ enum PaymentStatusEnum {
   failed
   cancelled
   refunded
+}
+
+enum PaymentOperationalStatusEnum {
+  normal
+  review_required
+  late_payment_conflict
 }
 
 enum PaymentMethodEnum {
@@ -266,26 +279,34 @@ model User {
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
-  profile         Profile?
-  addresses       Address[]
-  refreshTokens   RefreshToken[]
-  sessions        Session[]
-  otps            Otp[]
-  roles           UserRole[]
-  notifications   Notification[]
-  supportTickets  SupportTicket[]  @relation("TicketReporter")
-  assignedTickets SupportTicket[]  @relation("TicketAssignee")
-  activityLogs    ActivityLog[]
-  auditLogs       AuditLog[]
-  ratings         Review[]
-  tripsRequested  TripExtension[]  @relation("ExtensionRequester")
-  tripsApproved   TripExtension[]  @relation("ExtensionApprover")
-  wallet          Wallet?
-  bookings        Booking[]
-  payments        Payment[]
-  couponUsages    CouponUsage[]
-  invoices        Invoice[]
-  supportMessages SupportMessage[]
+  profile                 Profile?         @relation("ProfileSubject")
+  addresses               Address[]
+  refreshTokens           RefreshToken[]
+  sessions                Session[]
+  otps                    Otp[]
+  roles                   UserRole[]
+  notifications           Notification[]
+  supportTickets          SupportTicket[]  @relation("TicketReporter")
+  assignedTickets         SupportTicket[]  @relation("TicketAssignee")
+  activityLogs            ActivityLog[]
+  auditLogs               AuditLog[]
+  ratings                 Review[]
+  tripsRequested          TripExtension[]  @relation("ExtensionRequester")
+  tripsApproved           TripExtension[]  @relation("ExtensionApprover")
+  wallet                  Wallet?
+  bookings                Booking[]
+  payments                Payment[]
+  couponUsages            CouponUsage[]
+  invoices                Invoice[]
+  supportMessages         SupportMessage[]
+  userDocuments           UserDocument[]   @relation("UserDocuments")
+  verifiedUserDocuments   UserDocument[]   @relation("UserDocumentVerifiedBy")
+  verifiedProfiles        Profile[]        @relation("ProfileVerifiedBy")
+  verifiedVendors         Vendor[]         @relation("VendorVerifiedBy")
+  verifiedVendorDocuments VendorDocument[] @relation("VendorDocumentVerifiedBy")
+  vendorMemberships       VendorMember[]
+  tripsStarted            TripHistory[]    @relation("TripStartedBy")
+  tripsCompleted          TripHistory[]    @relation("TripCompletedBy")
 
   @@index([phone])
   @@index([status])
@@ -413,11 +434,16 @@ model Profile {
   gender             GenderEnum?
   profileImage       String?                @map("profile_image") @db.VarChar(500)
   verificationStatus VerificationStatusEnum @default(unverified) @map("verification_status")
+  submittedAt        DateTime?              @map("submitted_at")
+  verifiedAt         DateTime?              @map("verified_at")
+  verifiedBy         String?                @map("verified_by") @db.VarChar(36)
+  rejectionReason    String?                @map("rejection_reason") @db.VarChar(500)
   bio                String?                @db.VarChar(1000)
   createdAt          DateTime               @default(now()) @map("created_at")
   updatedAt          DateTime               @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User  @relation("ProfileSubject", fields: [userId], references: [id], onDelete: Cascade)
+  verifier User? @relation("ProfileVerifiedBy", fields: [verifiedBy], references: [id], onDelete: SetNull)
 
   @@map("profiles")
 }
@@ -460,6 +486,10 @@ model Vendor {
   taxId              String?                @map("tax_id") @db.VarChar(100)
   gstin              String?                @db.VarChar(100)
   verificationStatus VerificationStatusEnum @default(pending) @map("verification_status")
+  submittedAt        DateTime?              @map("submitted_at")
+  verifiedAt         DateTime?              @map("verified_at")
+  verifiedBy         String?                @map("verified_by") @db.VarChar(36)
+  rejectionReason    String?                @map("rejection_reason") @db.VarChar(500)
   commissionRate     Decimal?               @default(10) @map("commission_rate") @db.Decimal(5, 2)
   status             StatusEnum             @default(pending)
   isDeleted          Boolean                @default(false) @map("is_deleted")
@@ -474,6 +504,8 @@ model Vendor {
   bookings     Booking[]           @relation("VendorBookings")
   invoices     Invoice[]
   locations    Location[]
+  members      VendorMember[]
+  verifier     User?               @relation("VendorVerifiedBy", fields: [verifiedBy], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([verificationStatus])
@@ -483,18 +515,22 @@ model Vendor {
 }
 
 model VendorDocument {
-  id           String             @id @default(uuid()) @db.VarChar(36)
-  vendorId     String             @map("vendor_id") @db.VarChar(36)
-  documentType String             @map("document_type") @db.VarChar(100)
-  documentUrl  String             @map("document_url") @db.VarChar(500)
-  status       DocumentStatusEnum @default(pending)
-  issuedAt     DateTime?          @map("issued_at")
-  expiresAt    DateTime?          @map("expires_at")
-  remarks      String?            @db.VarChar(500)
-  createdAt    DateTime           @default(now()) @map("created_at")
-  updatedAt    DateTime           @updatedAt @map("updated_at")
+  id              String             @id @default(uuid()) @db.VarChar(36)
+  vendorId        String             @map("vendor_id") @db.VarChar(36)
+  documentType    String             @map("document_type") @db.VarChar(100)
+  documentUrl     String             @map("document_url") @db.VarChar(500)
+  status          DocumentStatusEnum @default(pending)
+  issuedAt        DateTime?          @map("issued_at")
+  expiresAt       DateTime?          @map("expires_at")
+  remarks         String?            @db.VarChar(500)
+  verifiedAt      DateTime?          @map("verified_at")
+  verifiedBy      String?            @map("verified_by") @db.VarChar(36)
+  rejectionReason String?            @map("rejection_reason") @db.VarChar(500)
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
 
-  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  verifier User?  @relation("VendorDocumentVerifiedBy", fields: [verifiedBy], references: [id], onDelete: SetNull)
 
   @@index([vendorId])
   @@index([status])
@@ -824,26 +860,31 @@ model GpsDevice {
 // ============================================================
 
 model Booking {
-  id                String            @id @default(uuid()) @db.VarChar(36)
-  bookingNumber     String            @unique @map("booking_number") @db.VarChar(50)
-  userId            String            @map("user_id") @db.VarChar(36) // customer
-  vendorId          String            @map("vendor_id") @db.VarChar(36)
-  carId             String            @map("car_id") @db.VarChar(36)
-  pickupLocationId  String?           @map("pickup_location_id") @db.VarChar(36)
-  dropoffLocationId String?           @map("dropoff_location_id") @db.VarChar(36)
-  startAt           DateTime          @map("start_at")
-  endAt             DateTime          @map("end_at")
-  subtotal          Decimal           @db.Decimal(12, 2)
-  tax               Decimal?          @default(0) @db.Decimal(12, 2)
-  discount          Decimal?          @default(0) @db.Decimal(12, 2)
-  securityDeposit   Decimal?          @default(0) @map("security_deposit") @db.Decimal(12, 2)
-  totalAmount       Decimal           @map("total_amount") @db.Decimal(12, 2)
-  currencyCode      String            @default("INR") @map("currency_code") @db.VarChar(3)
-  status            BookingStatusEnum @default(PENDING)
-  paymentStatus     PaymentStatusEnum @default(pending) @map("payment_status")
-  vendorCommision   Decimal?          @default(0) @map("vendor_commision") @db.Decimal(12, 2)
-  createdAt         DateTime          @default(now()) @map("created_at")
-  updatedAt         DateTime          @updatedAt @map("updated_at")
+  id                 String            @id @default(uuid()) @db.VarChar(36)
+  bookingNumber      String            @unique @map("booking_number") @db.VarChar(50)
+  userId             String            @map("user_id") @db.VarChar(36) // customer
+  vendorId           String            @map("vendor_id") @db.VarChar(36)
+  carId              String            @map("car_id") @db.VarChar(36)
+  pickupLocationId   String?           @map("pickup_location_id") @db.VarChar(36)
+  dropoffLocationId  String?           @map("dropoff_location_id") @db.VarChar(36)
+  startAt            DateTime          @map("start_at")
+  endAt              DateTime          @map("end_at")
+  subtotal           Decimal           @db.Decimal(12, 2)
+  tax                Decimal?          @default(0) @db.Decimal(12, 2)
+  discount           Decimal?          @default(0) @db.Decimal(12, 2)
+  securityDeposit    Decimal?          @default(0) @map("security_deposit") @db.Decimal(12, 2)
+  totalAmount        Decimal           @map("total_amount") @db.Decimal(12, 2)
+  currencyCode       String            @default("INR") @map("currency_code") @db.VarChar(3)
+  status             BookingStatusEnum @default(PENDING)
+  paymentStatus      PaymentStatusEnum @default(pending) @map("payment_status")
+  vendorCommision    Decimal?          @default(0) @map("vendor_commision") @db.Decimal(12, 2)
+  holdExpiresAt      DateTime?         @map("hold_expires_at")
+  cancelledAt        DateTime?         @map("cancelled_at")
+  cancellationReason String?           @map("cancellation_reason") @db.VarChar(500)
+  idempotencyKey     String?           @map("idempotency_key") @db.VarChar(255)
+  idempotencyHash    String?           @map("idempotency_hash") @db.VarChar(64)
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
 
   user          User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
   vendor        Vendor                 @relation("VendorBookings", fields: [vendorId], references: [id], onDelete: Restrict)
@@ -858,6 +899,7 @@ model Booking {
   reviews       Review[]
   statusHistory BookingStatusHistory[]
 
+  @@unique([userId, idempotencyKey])
   @@index([userId])
   @@index([carId])
   @@index([vendorId])
@@ -867,7 +909,49 @@ model Booking {
   @@index([endAt])
   @@index([pickupLocationId])
   @@index([dropoffLocationId])
+  @@index([holdExpiresAt])
   @@map("bookings")
+}
+
+model VendorMember {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  vendorId  String   @map("vendor_id") @db.VarChar(36)
+  userId    String   @map("user_id") @db.VarChar(36)
+  isOwner   Boolean  @default(false) @map("is_owner")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, userId])
+  @@index([userId])
+  @@index([vendorId, isOwner])
+  @@map("vendor_members")
+}
+
+model UserDocument {
+  id              String               @id @default(uuid()) @db.VarChar(36)
+  userId          String               @map("user_id") @db.VarChar(36)
+  documentType    UserDocumentTypeEnum @map("document_type")
+  storageKey      String               @map("storage_key") @db.VarChar(500)
+  status          DocumentStatusEnum   @default(pending)
+  issuedAt        DateTime?            @map("issued_at")
+  expiresAt       DateTime?            @map("expires_at")
+  remarks         String?              @db.VarChar(500)
+  verifiedAt      DateTime?            @map("verified_at")
+  verifiedBy      String?              @map("verified_by") @db.VarChar(36)
+  rejectionReason String?              @map("rejection_reason") @db.VarChar(500)
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+
+  user     User  @relation("UserDocuments", fields: [userId], references: [id], onDelete: Cascade)
+  verifier User? @relation("UserDocumentVerifiedBy", fields: [verifiedBy], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([userId, documentType])
+  @@index([status])
+  @@map("user_documents")
 }
 
 model BookingItem {
@@ -916,13 +1000,19 @@ model TripHistory {
   endFuel        Decimal?   @map("end_fuel") @db.Decimal(6, 2)
   distance       Decimal?   @db.Decimal(10, 2)
   actualDistance Int?       @map("actual_distance")
+  startedBy      String?    @map("started_by") @db.VarChar(36)
+  completedBy    String?    @map("completed_by") @db.VarChar(36)
+  pickupNotes    String?    @map("pickup_notes") @db.VarChar(1000)
+  returnNotes    String?    @map("return_notes") @db.VarChar(1000)
   tripStatus     StatusEnum @default(pending) @map("trip_status")
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
 
-  booking Booking      @relation(fields: [bookingId], references: [id], onDelete: Restrict)
-  photos  TripPhoto[]
-  damages TripDamage[]
+  booking         Booking      @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  startedByUser   User?        @relation("TripStartedBy", fields: [startedBy], references: [id], onDelete: SetNull)
+  completedByUser User?        @relation("TripCompletedBy", fields: [completedBy], references: [id], onDelete: SetNull)
+  photos          TripPhoto[]
+  damages         TripDamage[]
 
   @@unique([bookingId])
   @@index([bookingId])
@@ -992,24 +1082,28 @@ model TripDamage {
 // ============================================================
 
 model Payment {
-  id                   String            @id @default(uuid()) @db.VarChar(36)
-  bookingId            String            @map("booking_id") @db.VarChar(36)
-  userId               String            @map("user_id") @db.VarChar(36)
-  amount               Decimal           @db.Decimal(12, 2)
-  currencyCode         String            @default("INR") @map("currency_code") @db.VarChar(3)
-  paymentMethod        PaymentMethodEnum @default(card) @map("payment_method")
-  provider             String?           @db.VarChar(100)
-  status               PaymentStatusEnum @default(pending)
-  transactionReference String?           @unique @map("transaction_reference") @db.VarChar(150)
-  paidAt               DateTime?         @map("paid_at")
-  failedAt             DateTime?         @map("failed_at")
-  failureReason        String?           @map("failure_reason") @db.VarChar(500)
-  createdAt            DateTime          @default(now()) @map("created_at")
-  updatedAt            DateTime          @updatedAt @map("updated_at")
+  id                   String                       @id @default(uuid()) @db.VarChar(36)
+  bookingId            String                       @map("booking_id") @db.VarChar(36)
+  userId               String                       @map("user_id") @db.VarChar(36)
+  amount               Decimal                      @db.Decimal(12, 2)
+  currencyCode         String                       @default("INR") @map("currency_code") @db.VarChar(3)
+  paymentMethod        PaymentMethodEnum            @default(card) @map("payment_method")
+  provider             String?                      @db.VarChar(100)
+  providerOrderId      String?                      @unique @map("provider_order_id") @db.VarChar(100)
+  providerPaymentId    String?                      @unique @map("provider_payment_id") @db.VarChar(100)
+  status               PaymentStatusEnum            @default(pending)
+  operationalStatus    PaymentOperationalStatusEnum @default(normal) @map("operational_status")
+  transactionReference String?                      @unique @map("transaction_reference") @db.VarChar(150)
+  paidAt               DateTime?                    @map("paid_at")
+  failedAt             DateTime?                    @map("failed_at")
+  failureReason        String?                      @map("failure_reason") @db.VarChar(500)
+  createdAt            DateTime                     @default(now()) @map("created_at")
+  updatedAt            DateTime                     @updatedAt @map("updated_at")
 
-  booking Booking  @relation(fields: [bookingId], references: [id], onDelete: Restrict)
-  user    User     @relation(fields: [userId], references: [id], onDelete: Restrict)
-  refunds Refund[]
+  booking       Booking               @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  refunds       Refund[]
+  webhookEvents PaymentWebhookEvent[]
 
   @@index([bookingId])
   @@index([userId])
@@ -1018,26 +1112,68 @@ model Payment {
   @@map("payments")
 }
 
+model PaymentWebhookEvent {
+  id              String    @id @default(uuid()) @db.VarChar(36)
+  provider        String    @db.VarChar(100)
+  providerEventId String    @map("provider_event_id") @db.VarChar(150)
+  eventType       String    @map("event_type") @db.VarChar(100)
+  paymentId       String?   @map("payment_id") @db.VarChar(36)
+  payloadHash     String?   @map("payload_hash") @db.VarChar(64)
+  processedAt     DateTime? @map("processed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, providerEventId])
+  @@index([paymentId])
+  @@index([createdAt])
+  @@map("payment_webhook_events")
+}
+
 model Refund {
   id                String           @id @default(uuid()) @db.VarChar(36)
   paymentId         String           @map("payment_id") @db.VarChar(36)
   bookingId         String           @map("booking_id") @db.VarChar(36)
   amount            Decimal          @db.Decimal(12, 2)
   currencyCode      String           @default("INR") @map("currency_code") @db.VarChar(3)
+  provider          String?          @db.VarChar(100)
   reason            String?          @db.VarChar(500)
   status            RefundStatusEnum @default(pending)
   providerReference String?          @unique @map("provider_reference") @db.VarChar(150)
+  idempotencyKey    String?          @map("idempotency_key") @db.VarChar(255)
   processedAt       DateTime?        @map("processed_at")
+  failedAt          DateTime?        @map("failed_at")
+  failureReason     String?          @map("failure_reason") @db.VarChar(500)
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
 
-  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
-  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  payment       Payment              @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  booking       Booking              @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  webhookEvents RefundWebhookEvent[]
 
+  @@unique([bookingId, idempotencyKey])
   @@index([paymentId])
   @@index([bookingId])
   @@index([status])
   @@map("refunds")
+}
+
+model RefundWebhookEvent {
+  id              String    @id @default(uuid()) @db.VarChar(36)
+  provider        String    @db.VarChar(100)
+  providerEventId String    @map("provider_event_id") @db.VarChar(150)
+  eventType       String    @map("event_type") @db.VarChar(100)
+  refundId        String?   @map("refund_id") @db.VarChar(36)
+  payloadHash     String?   @map("payload_hash") @db.VarChar(64)
+  processedAt     DateTime? @map("processed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  refund Refund? @relation(fields: [refundId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, providerEventId])
+  @@index([refundId])
+  @@index([createdAt])
+  @@map("refund_webhook_events")
 }
 
 model Wallet {
@@ -1138,6 +1274,7 @@ model Invoice {
   user    User     @relation(fields: [userId], references: [id], onDelete: Restrict)
   vendor  Vendor?  @relation(fields: [vendorId], references: [id], onDelete: Restrict)
 
+  @@unique([bookingId])
   @@index([bookingId])
   @@index([userId])
   @@index([vendorId])
