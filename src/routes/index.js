@@ -27,6 +27,10 @@ const { InvoicesController } = require('../modules/invoices/controller');
 const invoiceSchemas = require('../modules/invoices/validator');
 const { kycRouter } = require('../modules/kyc/routes');
 const { adminKycRouter } = require('../modules/adminKyc/routes');
+const {
+  adminBookingReadRouter,
+  vendorBookingReadRouter,
+} = require('../modules/bookingReads/routes');
 
 const router = Router();
 
@@ -53,6 +57,8 @@ router.use('/refunds', refundsRouter);
 router.use('/invoices', invoicesRouter);
 router.use('/kyc', kycRouter);
 router.use('/admin/kyc', adminKycRouter);
+router.use('/admin/bookings', adminBookingReadRouter);
+router.use('/vendor/bookings', vendorBookingReadRouter);
 router.get('/bookings/:bookingId/refunds', authenticate, validate({ params: refundSchemas.bookingId }), RefundsController.listForBooking);
 router.get('/bookings/:bookingId/invoice', authenticate, validate({ params: invoiceSchemas.bookingId }), InvoicesController.getForBooking);
 
