@@ -9,6 +9,7 @@ const httpStatus = require('../../constants/httpStatus');
 const errorCodes = require('../../errors/errorCodes');
 const { verifyQuote } = require('../pricing/service');
 const { checkCarAvailability } = require('../availability/service');
+const { selectAuthoritativePayment, customerPaymentSummary } = require('../payments/recovery');
 
 const conflict = (message) => new AppError(message, httpStatus.CONFLICT, errorCodes.CONFLICT);
 const notFound = () => new AppError('Booking not found.', httpStatus.NOT_FOUND, errorCodes.RESOURCE_NOT_FOUND);
@@ -18,7 +19,7 @@ async function existing(userId, key) { return prisma.booking.findFirst({ where: 
 function decode(token) { try { return verifyQuote(token); } catch (_) { throw new AppError('Invalid or expired quote token.', httpStatus.UNPROCESSABLE_ENTITY, errorCodes.VALIDATION_ERROR); } }
 async function createBooking({ userId, quoteToken, idempotencyKey }) { const quote = decode(quoteToken); const hash = fingerprint(userId, quote); const replay = await existing(userId, idempotencyKey); if (replay) { if (replay.idempotencyHash === hash) return { booking: dto(replay), replayed: true }; throw conflict('Idempotency key was already used for a different request.'); } try { const booking = await prisma.$transaction(async (tx) => { if (tx.$queryRaw) await tx.$queryRaw(Prisma.sql`SELECT id FROM cars WHERE id = ${quote.carId} FOR UPDATE`); const availability = await checkCarAvailability(quote.carId, quote.pickupDateTime, quote.returnDateTime, tx); if (!availability.available) throw conflict('Car is no longer available for the requested interval.'); const holdExpiresAt = new Date(Date.now() + env.BOOKING_HOLD_TTL_MINUTES * 60000); const created = await tx.booking.create({ data: { bookingNumber: `BK-${crypto.randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase()}`, userId, vendorId: availability.car.vendorId, carId: quote.carId, startAt: new Date(quote.pickupDateTime), endAt: new Date(quote.returnDateTime), subtotal: quote.rentalSubtotal, tax: 0, discount: 0, securityDeposit: quote.securityDeposit, totalAmount: quote.payableAmount, currencyCode: quote.currencyCode, status: 'PAYMENT_PENDING', paymentStatus: 'pending', holdExpiresAt, idempotencyKey, idempotencyHash: hash } }); await tx.bookingItem.create({ data: { bookingId: created.id, carId: created.carId, itemType: 'car', quantity: 1, unitPrice: created.subtotal, currencyCode: created.currencyCode, subtotal: created.subtotal } }); await tx.bookingStatusHistory.create({ data: { bookingId: created.id, fromStatus: null, toStatus: 'PAYMENT_PENDING', changedBy: userId, reason: 'Temporary payment hold created.' } }); return created; }); return { booking: dto(booking), replayed: false }; } catch (err) { if (err.code === 'P2002') { const raced = await existing(userId, idempotencyKey); if (raced && raced.idempotencyHash === hash) return { booking: dto(raced), replayed: true }; throw conflict('Idempotency key was already used for a different request.'); } throw err; } }
 async function listMine(userId, query) { const page = query.page || 1; const limit = query.limit || 20; const where = { userId, ...(query.status ? { status: query.status } : {}) }; const [data, total] = await Promise.all([prisma.booking.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' } }), prisma.booking.count({ where })]); return { data: data.map(dto), meta: { page, limit, total, totalPages: total ? Math.ceil(total / limit) : 0 } }; }
-async function getMine(userId, id) { const booking = await prisma.booking.findFirst({ where: { id, userId } }); if (!booking) throw notFound(); return dto(booking); }
+async function getMine(userId, id) { const booking = await prisma.booking.findFirst({ where: { id, userId } }); if (!booking) throw notFound(); const payments = await prisma.payment.findMany({ where: { bookingId: booking.id, userId } }); return { ...dto(booking), payment: customerPaymentSummary(selectAuthoritativePayment(payments)) }; }
 
 /** Internal service seam for rollback verification; never routed through HTTP. */
 async function cancelBooking({ userId, bookingId, reason, idempotencyKey, testHooks }) {
@@ -26,10 +27,13 @@ async function cancelBooking({ userId, bookingId, reason, idempotencyKey, testHo
   if (!candidate) throw notFound();
 
   return prisma.$transaction(async (tx) => {
-    if (tx.$queryRaw) await tx.$queryRaw(Prisma.sql`SELECT id FROM bookings WHERE id = ${bookingId} FOR UPDATE`);
+    // Capture and order creation serialize on Car first. Taking Booking first
+    // deadlocks with capture's later Booking update. Keep all snapshot reads
+    // after this lock so a capture winner is visible under MySQL repeatable read.
     if (tx.$queryRaw) await tx.$queryRaw(Prisma.sql`SELECT id FROM cars WHERE id = ${candidate.carId} FOR UPDATE`);
+    if (tx.$queryRaw) await tx.$queryRaw(Prisma.sql`SELECT id FROM bookings WHERE id = ${bookingId} FOR UPDATE`);
     const booking = await tx.booking.findFirst({ where: { id: bookingId, userId } });
-    if (!booking) throw notFound();
+    if (!booking || booking.carId !== candidate.carId) throw notFound();
     if (booking.status === 'CANCELLED') return { booking: dto(booking), replayed: true };
 
     const unpaid = ['PENDING', 'PAYMENT_PENDING'].includes(booking.status) && booking.paymentStatus !== 'succeeded';

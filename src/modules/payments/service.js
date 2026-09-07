@@ -7,6 +7,7 @@ const httpStatus = require('../../constants/httpStatus');
 const errorCodes = require('../../errors/errorCodes');
 const razorpay = require('./providers/razorpay');
 const invoices = require('../invoices/service');
+const { hasCapturedMoney } = require('./recovery');
 
 const notFound = () => new AppError('Payment or booking not found.', httpStatus.NOT_FOUND, errorCodes.RESOURCE_NOT_FOUND);
 const conflict = (message, code = errorCodes.CONFLICT) => new AppError(message, httpStatus.CONFLICT, code);
@@ -14,12 +15,47 @@ function minorUnits(value) { const match = String(value).match(/^(\d+)(?:\.(\d{1
 function dto(payment) { return { id: payment.id, bookingId: payment.bookingId, amount: payment.amount, currencyCode: payment.currencyCode, paymentMethod: payment.paymentMethod, provider: payment.provider, status: payment.status, operationalStatus: payment.operationalStatus, providerOrderId: payment.providerOrderId, providerPaymentId: payment.providerPaymentId, paidAt: payment.paidAt, failedAt: payment.failedAt, failureReason: payment.failureReason }; }
 function payable(booking) { if (booking.status !== 'PAYMENT_PENDING' || booking.paymentStatus !== 'pending') throw conflict('Booking is not payable.', errorCodes.BOOKING_NOT_PAYABLE); if (!booking.holdExpiresAt || new Date(booking.holdExpiresAt) <= new Date()) throw conflict('Booking hold has expired.', errorCodes.BOOKING_HOLD_EXPIRED); }
 async function activeAttempt(db, bookingId) { const payments = await db.payment.findMany({ where: { bookingId } }); return payments.find((payment) => payment.provider === 'razorpay' && ['pending', 'processing'].includes(payment.status)) || null; }
-async function createOrder({ userId, bookingId }) { const claim = await prisma.$transaction(async (tx) => { const booking = await tx.booking.findFirst({ where: { id: bookingId, userId } }); if (!booking) throw notFound(); payable(booking); if (tx.$queryRaw) await tx.$queryRaw(Prisma.sql`SELECT id FROM bookings WHERE id = ${booking.id} FOR UPDATE`); const existing = await activeAttempt(tx, booking.id); if (existing) return { booking, payment: existing, reused: Boolean(existing.providerOrderId), inProgress: !existing.providerOrderId }; const payment = await tx.payment.create({ data: { bookingId: booking.id, userId, amount: booking.totalAmount, currencyCode: booking.currencyCode, paymentMethod: 'card', provider: 'razorpay', status: 'pending', operationalStatus: 'normal', transactionReference: `PAY-${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}` } }); return { booking, payment, reused: false, inProgress: false }; });
+async function createOrder({ userId, bookingId }) {
+  const candidate = await prisma.booking.findFirst({ where: { id: bookingId, userId } });
+  if (!candidate) throw notFound();
+  const locked = (work) => prisma.$transaction(async (tx) => {
+    // Same first-operation car lock as capture reconciliation. No booking lock is
+    // acquired before this lock, and no repeatable-read snapshot predates it.
+    if (tx.$queryRaw) await tx.$queryRaw(Prisma.sql`SELECT id FROM cars WHERE id = ${candidate.carId} FOR UPDATE`);
+    const booking = await tx.booking.findFirst({ where: { id: bookingId, userId } });
+    if (!booking || booking.carId !== candidate.carId) throw notFound();
+    const payments = await tx.payment.findMany({ where: { bookingId } });
+    if (payments.some(hasCapturedMoney)) throw conflict('Payment has already been captured for this booking.', errorCodes.BOOKING_NOT_PAYABLE);
+    payable(booking);
+    return work(tx, booking);
+  }, { timeout: 20000 });
+  const claim = await locked(async (tx, booking) => {
+    const existing = await activeAttempt(tx, booking.id);
+    if (existing) return { payment: existing, reused: Boolean(existing.providerOrderId), inProgress: !existing.providerOrderId };
+    const payment = await tx.payment.create({ data: { bookingId, userId, amount: booking.totalAmount, currencyCode: booking.currencyCode, paymentMethod: 'card', provider: 'razorpay', status: 'pending', operationalStatus: 'normal', transactionReference: `PAY-${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}` } });
+    return { payment, reused: false };
+  });
   if (claim.inProgress) throw conflict('A payment order is already being created for this booking.', errorCodes.BOOKING_NOT_PAYABLE);
-  if (claim.reused) return { payment: dto(claim.payment), keyId: require('../../config/env').env.RAZORPAY_KEY_ID, reused: true };
-  if (claim.payment.providerOrderId) return { payment: dto(claim.payment), keyId: require('../../config/env').env.RAZORPAY_KEY_ID, reused: true };
-  const another = await activeAttempt(prisma, bookingId); if (another && another.id !== claim.payment.id) throw conflict('A payment order is already being created for this booking.', errorCodes.BOOKING_NOT_PAYABLE);
-  try { const order = await razorpay.createOrder({ amount: minorUnits(claim.booking.totalAmount), currency: claim.booking.currencyCode, receipt: claim.payment.transactionReference }); if (!order || !order.id) throw new Error('Razorpay did not return an order ID'); const payment = await prisma.payment.update({ where: { id: claim.payment.id }, data: { providerOrderId: order.id } }); return { payment: dto(payment), keyId: require('../../config/env').env.RAZORPAY_KEY_ID, reused: false }; } catch (err) { await prisma.payment.update({ where: { id: claim.payment.id }, data: { status: 'failed', failedAt: new Date(), failureReason: 'Payment provider order creation failed.' } }).catch(() => {}); if (err instanceof AppError) throw err; throw new AppError('Payment provider order creation failed.', httpStatus.SERVICE_UNAVAILABLE, errorCodes.PAYMENT_PROVIDER_UNAVAILABLE); }
+  const response = (payment, reused) => ({ payment: dto(payment), keyId: require('../../config/env').env.RAZORPAY_KEY_ID, reused });
+  if (claim.reused) return response(claim.payment, true);
+  // Capture of an older attempt may win after the claim commits. Recheck under
+  // the car lock and retain it through provider creation to close that gap.
+  const result = await locked(async (tx, booking) => {
+    const payment = await tx.payment.findUnique({ where: { id: claim.payment.id } });
+    if (!payment || payment.status !== 'pending') throw conflict('Payment attempt is no longer pending.', errorCodes.BOOKING_NOT_PAYABLE);
+    if (payment.providerOrderId) return response(payment, true);
+    let order;
+    try {
+      order = await razorpay.createOrder({ amount: minorUnits(booking.totalAmount), currency: booking.currencyCode, receipt: payment.transactionReference });
+      if (!order?.id) throw new Error('Razorpay did not return an order ID');
+    } catch (err) {
+      await tx.payment.update({ where: { id: payment.id }, data: { status: 'failed', failedAt: new Date(), failureReason: 'Payment provider order creation failed.' } });
+      return { error: err instanceof AppError ? err : new AppError('Payment provider order creation failed.', httpStatus.SERVICE_UNAVAILABLE, errorCodes.PAYMENT_PROVIDER_UNAVAILABLE) };
+    }
+    return response(await tx.payment.update({ where: { id: payment.id }, data: { providerOrderId: order.id } }), false);
+  });
+  if (result.error) throw result.error;
+  return result;
 }
 async function verifyCheckout({ userId, bookingId, orderId, paymentId, signature }) { const payment = await prisma.payment.findFirst({ where: { bookingId, userId, provider: 'razorpay', providerOrderId: orderId } }); if (!payment) throw notFound(); if (payment.providerOrderId !== orderId) throw conflict('Payment order does not match.', errorCodes.PAYMENT_ORDER_MISMATCH); if (!razorpay.verifyCheckoutSignature({ orderId: payment.providerOrderId, paymentId, signature })) throw new AppError('Payment signature is invalid.', httpStatus.BAD_REQUEST, errorCodes.PAYMENT_SIGNATURE_INVALID); return { verified: true, payment: dto(payment) }; }
 function blockingOther(bookings, current, now) { return bookings.some((booking) => booking.id !== current.id && new Date(booking.startAt) < new Date(current.endAt) && new Date(booking.endAt) > new Date(current.startAt) && ((['PENDING', 'PAYMENT_PENDING'].includes(booking.status) && booking.holdExpiresAt && new Date(booking.holdExpiresAt) > now) || ['CONFIRMED', 'ACTIVE'].includes(booking.status))); }
