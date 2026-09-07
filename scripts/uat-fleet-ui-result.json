@@ -1,0 +1,43 @@
+{
+  "fleetList": "PASS",
+  "detail": "PASS",
+  "pricing": "PASS",
+  "images": "PASS",
+  "imageRecordCount": 4,
+  "imageRendering": "FAIL",
+  "failedImageRequests": [
+    {
+      "url": "http://localhost:5000/uploads/cars/1788802726245-ff2acf3c388fc8.png",
+      "error": "net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    },
+    {
+      "url": "http://localhost:5000/uploads/cars/1788802726245-ff2acf3c388fc8.png",
+      "error": "net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    },
+    {
+      "url": "http://localhost:5000/uploads/cars/1788802726245-ff2acf3c388fc8.png",
+      "error": "net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    },
+    {
+      "url": "http://localhost:5000/uploads/cars/1788802726292-6514f60261957.png",
+      "error": "net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    },
+    {
+      "url": "http://localhost:5000/uploads/cars/1788802726353-4d3029ae1cbb28.png",
+      "error": "net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    },
+    {
+      "url": "http://localhost:5000/uploads/cars/1788802726404-58abf2e11e7298.png",
+      "error": "net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin"
+    }
+  ],
+  "features": "PASS",
+  "availability": "PASS",
+  "customerDiscovery": "PASS",
+  "customerQuote": "PASS",
+  "quoteTokenNotInUrlOrLocalStorage": "PASS",
+  "quoteInterval": {
+    "pickupDateTime": "2026-09-08T04:30:00.000Z",
+    "returnDateTime": "2026-09-09T04:30:00.000Z"
+  }
+}

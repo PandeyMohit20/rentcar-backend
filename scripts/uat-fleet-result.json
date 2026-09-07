@@ -1,0 +1,1660 @@
+{
+  "environment": {
+    "database": "local development MySQL (credentials omitted)",
+    "backend": "http://localhost:5000/api/v1"
+  },
+  "vendorId": "564ebf45-1cae-4ca1-a29e-d4794733b57c",
+  "vendor": "Test Vendor 3936A9796012",
+  "branchId": "d5f9c996-6a74-47d0-b2e3-2a75688486a9",
+  "branch": "Branch-3936A9796012",
+  "cars": [
+    {
+      "registrationNumber": "UAT-MH01-0001",
+      "brand": "Maruti Suzuki",
+      "model": "Swift",
+      "variant": "ZXi",
+      "fuelType": "petrol",
+      "transmission": "manual",
+      "seatingCapacity": 5,
+      "manufacturingYear": 2024,
+      "odometer": 12000,
+      "status": "available",
+      "id": "cfde7ac8-b29a-48c7-a949-70ad29e78659",
+      "pricing": [
+        {
+          "id": "4ce3e0de-0026-42f9-8242-f5f70e52acf7",
+          "carId": "cfde7ac8-b29a-48c7-a949-70ad29e78659",
+          "hourlyPrice": "180",
+          "dailyPrice": "1800",
+          "weeklyPrice": "10500",
+          "monthlyPrice": "36000",
+          "extraHourPrice": "200",
+          "extraKmPrice": "12",
+          "securityDeposit": "3000",
+          "currencyCode": "INR",
+          "effectiveFrom": "2026-08-31T18:30:00.000Z",
+          "effectiveTo": null,
+          "status": "active",
+          "createdAt": "2026-09-07T17:36:21.352Z",
+          "updatedAt": "2026-09-07T17:36:21.352Z"
+        }
+      ],
+      "images": [
+        {
+          "id": "cabfaaaf-2c51-48e8-8045-02df58d571b9",
+          "carId": "cfde7ac8-b29a-48c7-a949-70ad29e78659",
+          "imageUrl": "/uploads/cars/1788802722011-785201d53c0718.png",
+          "sortOrder": 0,
+          "isPrimary": true,
+          "altText": "UAT Fleet v1 | Maruti Suzuki Swift | Front",
+          "createdAt": "2026-09-07T17:38:42.024Z"
+        }
+      ],
+      "features": [
+        {
+          "id": "71c8c14a-11e7-43f5-913f-8131353a7566",
+          "carId": "cfde7ac8-b29a-48c7-a949-70ad29e78659",
+          "name": "ABS",
+          "iconKey": null
+        },
+        {
+          "id": "eec0c636-d872-4b7f-87f1-7fc609ed5489",
+          "carId": "cfde7ac8-b29a-48c7-a949-70ad29e78659",
+          "name": "Air Conditioning",
+          "iconKey": null
+        },
+        {
+          "id": "ea6aee76-d6dd-4d61-a505-ea456a5e2101",
+          "carId": "cfde7ac8-b29a-48c7-a949-70ad29e78659",
+          "name": "Airbags",
+          "iconKey": null
+        },
+        {
+          "id": "169da73a-2b86-4da2-b0c6-557a1736d286",
+          "carId": "cfde7ac8-b29a-48c7-a949-70ad29e78659",
+          "name": "Bluetooth",
+          "iconKey": null
+        },
+        {
+          "id": "7d8a4fdf-00c4-4aec-8e44-694d0cb11b34",
+          "carId": "cfde7ac8-b29a-48c7-a949-70ad29e78659",
+          "name": "Reverse Camera",
+          "iconKey": null
+        }
+      ],
+      "availability": []
+    },
+    {
+      "registrationNumber": "UAT-MH01-0002",
+      "brand": "Maruti Suzuki",
+      "model": "Baleno",
+      "variant": "Alpha AGS",
+      "fuelType": "petrol",
+      "transmission": "automatic",
+      "seatingCapacity": 5,
+      "manufacturingYear": 2024,
+      "odometer": 13700,
+      "status": "available",
+      "id": "9f2313e6-f2e1-438c-bf8a-32a6b6503d62",
+      "pricing": [
+        {
+          "id": "710f81a8-0f13-4ea9-8559-1d88dc23adad",
+          "carId": "9f2313e6-f2e1-438c-bf8a-32a6b6503d62",
+          "hourlyPrice": "200",
+          "dailyPrice": "2000",
+          "weeklyPrice": "12000",
+          "monthlyPrice": "40000",
+          "extraHourPrice": "220",
+          "extraKmPrice": "13",
+          "securityDeposit": "3500",
+          "currencyCode": "INR",
+          "effectiveFrom": "2026-08-31T18:30:00.000Z",
+          "effectiveTo": null,
+          "status": "active",
+          "createdAt": "2026-09-07T17:36:22.007Z",
+          "updatedAt": "2026-09-07T17:36:22.007Z"
+        }
+      ],
+      "images": [
+        {
+          "id": "01f6180c-56fb-4bbf-8ff0-05790057db17",
+          "carId": "9f2313e6-f2e1-438c-bf8a-32a6b6503d62",
+          "imageUrl": "/uploads/cars/1788802722352-7e94bd36c0ec88.png",
+          "sortOrder": 0,
+          "isPrimary": true,
+          "altText": "UAT Fleet v1 | Maruti Suzuki Baleno | Front",
+          "createdAt": "2026-09-07T17:38:42.372Z"
+        }
+      ],
+      "features": [
+        {
+          "id": "f717891d-bbe7-4128-9439-70d5dc2ad110",
+          "carId": "9f2313e6-f2e1-438c-bf8a-32a6b6503d62",
+          "name": "ABS",
+          "iconKey": null
+        },
+        {
+          "id": "d6ef89ae-ab1b-45d7-be9e-a90914407ff1",
+          "carId": "9f2313e6-f2e1-438c-bf8a-32a6b6503d62",
+          "name": "Air Conditioning",
+          "iconKey": null
+        },
+        {
+          "id": "1fadca13-3baa-4716-844c-e947d638747e",
+          "carId": "9f2313e6-f2e1-438c-bf8a-32a6b6503d62",
+          "name": "Airbags",
+          "iconKey": null
+        },
+        {
+          "id": "3c1d262b-110a-4329-8eeb-b2d87df0c512",
+          "carId": "9f2313e6-f2e1-438c-bf8a-32a6b6503d62",
+          "name": "Bluetooth",
+          "iconKey": null
+        },
+        {
+          "id": "42093489-fb3b-470e-b803-72bbb597e561",
+          "carId": "9f2313e6-f2e1-438c-bf8a-32a6b6503d62",
+          "name": "Reverse Camera",
+          "iconKey": null
+        }
+      ],
+      "availability": []
+    },
+    {
+      "registrationNumber": "UAT-MH01-0003",
+      "brand": "Hyundai",
+      "model": "i20",
+      "variant": "Asta IVT",
+      "fuelType": "petrol",
+      "transmission": "automatic",
+      "seatingCapacity": 5,
+      "manufacturingYear": 2024,
+      "odometer": 15400,
+      "status": "available",
+      "id": "080cbda9-d5fe-4e6d-bf04-a25e2755a9a7",
+      "pricing": [
+        {
+          "id": "6e3f21b1-cb22-47a3-a596-48095607704f",
+          "carId": "080cbda9-d5fe-4e6d-bf04-a25e2755a9a7",
+          "hourlyPrice": "210",
+          "dailyPrice": "2100",
+          "weeklyPrice": "12500",
+          "monthlyPrice": "42000",
+          "extraHourPrice": "230",
+          "extraKmPrice": "13",
+          "securityDeposit": "3500",
+          "currencyCode": "INR",
+          "effectiveFrom": "2026-08-31T18:30:00.000Z",
+          "effectiveTo": null,
+          "status": "active",
+          "createdAt": "2026-09-07T17:36:22.581Z",
+          "updatedAt": "2026-09-07T17:36:22.581Z"
+        }
+      ],
+      "images": [
+        {
+          "id": "11b1a5c6-39a1-4c32-b12a-39d557aee0d3",
+          "carId": "080cbda9-d5fe-4e6d-bf04-a25e2755a9a7",
+          "imageUrl": "/uploads/cars/1788802722665-1fa5ba32c60b58.png",
+          "sortOrder": 0,
+          "isPrimary": true,
+          "altText": "UAT Fleet v1 | Hyundai i20 | Front",
+          "createdAt": "2026-09-07T17:38:42.683Z"
+        }
+      ],
+      "features": [
+        {
+          "id": "53c87e4c-4726-4057-852a-e0147b7e5903",
+          "carId": "080cbda9-d5fe-4e6d-bf04-a25e2755a9a7",
+          "name": "ABS",
+          "iconKey": null
+        },
+        {
+          "id": "6bdb776b-29c5-429d-93c6-3a4c11bb32d9",
+          "carId": "080cbda9-d5fe-4e6d-bf04-a25e2755a9a7",
+          "name": "Air Conditioning",
+          "iconKey": null
+        },
+        {
+          "id": "2afec394-1b6d-433e-9e68-0a95cfcb9207",
+          "carId": "080cbda9-d5fe-4e6d-bf04-a25e2755a9a7",
+          "name": "Airbags",
+          "iconKey": null
+        },
+        {
+          "id": "37625a20-b927-4caf-9c83-139bca5b80a3",
+          "carId": "080cbda9-d5fe-4e6d-bf04-a25e2755a9a7",
+          "name": "Bluetooth",
+          "iconKey": null
+        },
+        {
+          "id": "c1ad8d01-440f-45ac-8301-cd90ef95fb60",
+          "carId": "080cbda9-d5fe-4e6d-bf04-a25e2755a9a7",
+          "name": "Reverse Camera",
+          "iconKey": null
+        }
+      ],
+      "availability": []
+    },
+    {
+      "registrationNumber": "UAT-MH01-0004",
+      "brand": "Hyundai",
+      "model": "Creta",
+      "variant": "SX Diesel AT",
+      "fuelType": "diesel",
+      "transmission": "automatic",
+      "seatingCapacity": 5,
+      "manufacturingYear": 2024,
+      "odometer": 17100,
+      "status": "available",
+      "id": "7c002acf-5ad6-4179-86a2-80281deb2f19",
+      "pricing": [
+        {
+          "id": "8776b4f5-6a37-4635-9815-fb974048d857",
+          "carId": "7c002acf-5ad6-4179-86a2-80281deb2f19",
+          "hourlyPrice": "320",
+          "dailyPrice": "3400",
+          "weeklyPrice": "19500",
+          "monthlyPrice": "65000",
+          "extraHourPrice": "350",
+          "extraKmPrice": "18",
+          "securityDeposit": "7000",
+          "currencyCode": "INR",
+          "effectiveFrom": "2026-09-30T18:30:00.000Z",
+          "effectiveTo": null,
+          "status": "active",
+          "createdAt": "2026-09-07T17:36:23.242Z",
+          "updatedAt": "2026-09-07T17:36:23.242Z"
+        },
+        {
+          "id": "13fbe9d3-0b67-440f-89b6-535d690ec029",
+          "carId": "7c002acf-5ad6-4179-86a2-80281deb2f19",
+          "hourlyPrice": "320",
+          "dailyPrice": "3200",
+          "weeklyPrice": "19500",
+          "monthlyPrice": "65000",
+          "extraHourPrice": "350",
+          "extraKmPrice": "18",
+          "securityDeposit": "7000",
+          "currencyCode": "INR",
+          "effectiveFrom": "2026-08-31T18:30:00.000Z",
+          "effectiveTo": "2026-09-30T18:29:59.999Z",
+          "status": "active",
+          "createdAt": "2026-09-07T17:36:23.203Z",
+          "updatedAt": "2026-09-07T17:36:23.203Z"
+        }
+      ],
+      "images": [
+        {
+          "id": "55d11b0f-92d6-4f57-82e4-3cde86b23c24",
+          "carId": "7c002acf-5ad6-4179-86a2-80281deb2f19",
+          "imageUrl": "/uploads/cars/1788802722991-948655eb6ec4e.png",
+          "sortOrder": 0,
+          "isPrimary": true,
+          "altText": "UAT Fleet v1 | Hyundai Creta | Front",
+          "createdAt": "2026-09-07T17:38:43.017Z"
+        }
+      ],
+      "features": [
+        {
+          "id": "6890b41d-be1b-4e05-9b46-b4dbe4313bf6",
+          "carId": "7c002acf-5ad6-4179-86a2-80281deb2f19",
+          "name": "ABS",
+          "iconKey": null
+        },
+        {
+          "id": "824052e5-b3c5-4197-b843-dac90cf993fd",
+          "carId": "7c002acf-5ad6-4179-86a2-80281deb2f19",
+          "name": "Air Conditioning",
+          "iconKey": null
+        },
+        {
+          "id": "8b14de9c-6a53-4d10-a766-a0b5afab0d4a",
+          "carId": "7c002acf-5ad6-4179-86a2-80281deb2f19",
+          "name": "Airbags",
+          "iconKey": null
+        },
+        {
+          "id": "5f9c18c2-ec85-4395-88a8-26451e547d48",
+          "carId": "7c002acf-5ad6-4179-86a2-80281deb2f19",
+          "name": "Bluetooth",
+          "iconKey": null
+        },
+        {
+          "id": "3e61408a-37cc-43ba-bc60-752c987e3617",
+          "carId": "7c002acf-5ad6-4179-86a2-80281deb2f19",
+          "name": "Reverse Camera",
+          "iconKey": null
+        }
+      ],
+      "availability": []
+    },
+    {
+      "registrationNumber": "UAT-MH01-0005",
+      "brand": "Hyundai",
+      "model": "Venue",
+      "variant": "SX Turbo DCT",
+      "fuelType": "petrol",
+      "transmission": "automatic",
+      "seatingCapacity": 5,
+      "manufacturingYear": 2024,
+      "odometer": 18800,
+      "status": "available",
+      "id": "10a38e07-f769-4816-8aba-967185ad206e",
+      "pricing": [
+        {
+          "id": "966520cd-a3d1-4c23-bf4b-22c72dc8b5b6",
+          "carId": "10a38e07-f769-4816-8aba-967185ad206e",
+          "hourlyPrice": "250",
+          "dailyPrice": "2500",
+          "weeklyPrice": "15000",
+          "monthlyPrice": "50000",
+          "extraHourPrice": "280",
+          "extraKmPrice": "15",
+          "securityDeposit": "5000",
+          "currencyCode": "INR",
+          "effectiveFrom": "2026-08-31T18:30:00.000Z",
+          "effectiveTo": null,
+          "status": "active",
+          "createdAt": "2026-09-07T17:36:25.416Z",
+          "updatedAt": "2026-09-07T17:36:25.416Z"
+        }
+      ],
+      "images": [
+        {
+          "id": "3d90a729-18d9-4127-9119-bdca84eafd74",
+          "carId": "10a38e07-f769-4816-8aba-967185ad206e",
+          "imageUrl": "/uploads/cars/1788802723319-a65b9c5af06c68.png",
+          "sortOrder": 0,
+          "isPrimary": true,
+          "altText": "UAT Fleet v1 | Hyundai Venue | Front",
+          "createdAt": "2026-09-07T17:38:43.338Z"
+        }
+      ],
+      "features": [
+        {
+          "id": "3e5c859f-e1b8-4c05-af0d-68bcc958914b",
+          "carId": "10a38e07-f769-4816-8aba-967185ad206e",
+          "name": "ABS",
+          "iconKey": null
+        },
+        {
+          "id": "2197e8e9-d778-4453-9172-0f992bd2f7c5",
+          "carId": "10a38e07-f769-4816-8aba-967185ad206e",
+          "name": "Air Conditioning",
+          "iconKey": null
+        },
+        {
+          "id": "41a69efe-9355-4bfc-b67e-87bb26d45b48",
+          "carId": "10a38e07-f769-4816-8aba-967185ad206e",
+          "name": "Airbags",
+          "iconKey": null
+        },
+        {
+          "id": "5048911e-751d-42ba-a880-c9822e28cfbd",
+          "carId": "10a38e07-f769-4816-8aba-967185ad206e",
+          "name": "Bluetooth",
+          "iconKey": null
+        },
+        {
+          "id": "746f287a-a130-4cd5-b036-7fd80c40a117",
+          "carId": "10a38e07-f769-4816-8aba-967185ad206e",
+          "name": "Reverse Camera",
+          "iconKey": null
+        }
+      ],
+      "availability": [
+        {
+          "id": "76c845df-bab5-4033-9e49-bf86e2494e2e",
+          "carId": "10a38e07-f769-4816-8aba-967185ad206e",
+          "date": "2026-09-20T00:00:00.000Z",
+          "startTime": "2026-09-20T04:30:00.000Z",
+          "endTime": "2026-09-22T04:30:00.000Z",
+          "status": "blocked",
+          "reason": "UAT Fleet v1: September availability filter block",
+          "createdAt": "2026-09-07T17:36:25.821Z",
+          "updatedAt": "2026-09-07T17:36:25.821Z"
+        }
+      ]
+    },
+    {
+      "registrationNumber": "UAT-MH01-0006",
+      "brand": "Tata",
+      "model": "Nexon",
+      "variant": "Fearless Diesel AMT",
+      "fuelType": "diesel",
+      "transmission": "automatic",
+      "seatingCapacity": 5,
+      "manufacturingYear": 2024,
+      "odometer": 20500,
+      "status": "available",
+      "id": "ad8e18a1-8e70-4197-b950-46f057a484e1",
+      "pricing": [
+        {
+          "id": "14505738-a967-4e67-aa10-82791db4cc08",
+          "carId": "ad8e18a1-8e70-4197-b950-46f057a484e1",
+          "hourlyPrice": "280",
+          "dailyPrice": "2800",
+          "weeklyPrice": "17000",
+          "monthlyPrice": "56000",
+          "extraHourPrice": "300",
+          "extraKmPrice": "16",
+          "securityDeposit": "5000",
+          "currencyCode": "INR",
+          "effectiveFrom": "2026-08-31T18:30:00.000Z",
+          "effectiveTo": null,
+          "status": "active",
+          "createdAt": "2026-09-07T17:36:25.973Z",
+          "updatedAt": "2026-09-07T17:36:25.973Z"
+        }
+      ],
+      "images": [
+        {
+          "id": "317ae02e-c47e-43f4-99f9-45da93a8611a",
+          "carId": "ad8e18a1-8e70-4197-b950-46f057a484e1",
+          "imageUrl": "/uploads/cars/1788802723669-73df0a8205b4e8.png",
+          "sortOrder": 0,
+          "isPrimary": true,
+          "altText": "UAT Fleet v1 | Tata Nexon | Front",
+          "createdAt": "2026-09-07T17:38:43.686Z"
+        }
+      ],
+      "features": [
+        {
+          "id": "30df9729-6c7b-4fb2-849b-92ae75643637",
+          "carId": "ad8e18a1-8e70-4197-b950-46f057a484e1",
+          "name": "ABS",
+          "iconKey": null
+        },
+        {
+          "id": "fbea50d1-3997-49af-a53a-e46a9107150f",
+          "carId": "ad8e18a1-8e70-4197-b950-46f057a484e1",
+          "name": "Air Conditioning",
+          "iconKey": null
+        },
+        {
+          "id": "087d9585-c659-4156-bdef-f757c55c5dd9",
+          "carId": "ad8e18a1-8e70-4197-b950-46f057a484e1",
+          "name": "Airbags",
+          "iconKey": null
+        },
+        {
+          "id": "3c5335d4-f181-4584-8aae-95933ca5b0bc",
+          "carId": "ad8e18a1-8e70-4197-b950-46f057a484e1",
+          "name": "Bluetooth",
+          "iconKey": null
+        },
+        {
+          "id": "f0233157-9852-4f4d-b9d3-c44c0462da1a",
+          "carId": "ad8e18a1-8e70-4197-b950-46f057a484e1",
+          "name": "Reverse Camera",
+          "iconKey": null
+        }
+      ],
+      "availability": []
+    },
+    {
+      "registrationNumber": "UAT-MH01-0007",
+      "brand": "Tata",
+      "model": "Punch",
+      "variant": "Accomplished",
+      "fuelType": "petrol",
+      "transmission": "manual",
+      "seatingCapacity": 5,
+      "manufacturingYear": 2024,
+      "odometer": 22200,
+      "status": "available",
+      "id": "8b961fab-6eee-4858-819c-8c4c339f6216",
+      "pricing": [
+        {
+          "id": "21d57e72-47b8-41ec-9c8d-315f11b25a49",
+          "carId": "8b961fab-6eee-4858-819c-8c4c339f6216",
+          "hourlyPrice": "230",
+          "dailyPrice": "2300",
+          "weeklyPrice": "13800",
+          "monthlyPrice": "47000",
+          "extraHourPrice": "250",
+          "extraKmPrice": "14",
+          "securityDeposit": "4000",
+          "currencyCode": "INR",
+          "effectiveFrom": "2026-08-31T18:30:00.000Z",
+          "effectiveTo": null,
+          "status": "active",
+          "createdAt": "2026-09-07T17:36:26.685Z",
+          "updatedAt": "2026-09-07T17:36:26.685Z"
+        }
+      ],
+      "images": [
+        {
+          "id": "4db0e31b-f998-4ecc-84e3-bc19fa222868",
+          "carId": "8b961fab-6eee-4858-819c-8c4c339f6216",
+          "imageUrl": "/uploads/cars/1788802724017-90bd708a731918.png",
+          "sortOrder": 0,
+          "isPrimary": true,
+          "altText": "UAT Fleet v1 | Tata Punch | Front",
+          "createdAt": "2026-09-07T17:38:44.049Z"
+        }
+      ],
+      "features": [
+        {
+          "id": "412efbd3-2742-4192-bda5-32948447f3ba",
+          "carId": "8b961fab-6eee-4858-819c-8c4c339f6216",
+          "name": "ABS",
+          "iconKey": null
+        },
+        {
+          "id": "b4063262-c130-4c9f-9d45-1f4484230340",
+          "carId": "8b961fab-6eee-4858-819c-8c4c339f6216",
+          "name": "Air Conditioning",
+          "iconKey": null
+        },
+        {
+          "id": "103844f5-3589-4f70-97e7-c13a101a10ca",
+          "carId": "8b961fab-6eee-4858-819c-8c4c339f6216",
+          "name": "Airbags",
+          "iconKey": null
+        },
+        {
+          "id": "ba30f954-275f-4b5d-ba98-305ea05a3f5c",
+          "carId": "8b961fab-6eee-4858-819c-8c4c339f6216",
+          "name": "Bluetooth",
+          "iconKey": null
+        },
+        {
+          "id": "b6cf8d93-e950-4d74-ae1a-de6c2a9cba9f",
+          "carId": "8b961fab-6eee-4858-819c-8c4c339f6216",
+          "name": "Reverse Camera",
+          "iconKey": null
+        }
+      ],
+      "availability": []
+    },
+    {
+      "registrationNumber": "UAT-MH01-0008",
+      "brand": "Mahindra",
+      "model": "XUV700",
+      "variant": "AX7 Diesel AT",
+      "fuelType": "diesel",
+      "transmission": "automatic",
+      "seatingCapacity": 7,
+      "manufacturingYear": 2024,
+      "odometer": 23900,
+      "status": "available",
+      "id": "c78a7595-0544-406b-987d-7133dae108d7",
+      "pricing": [
+        {
+          "id": "eb95b2b0-7a90-49ba-96e2-5b6b86e4a2ef",
+          "carId": "c78a7595-0544-406b-987d-7133dae108d7",
+          "hourlyPrice": "420",
+          "dailyPrice": "4200",
+          "weeklyPrice": "25500",
+          "monthlyPrice": "85000",
+          "extraHourPrice": "450",
+          "extraKmPrice": "22",
+          "securityDeposit": "10000",
+          "currencyCode": "INR",
+          "effectiveFrom": "2026-08-31T18:30:00.000Z",
+          "effectiveTo": null,
+          "status": "active",
+          "createdAt": "2026-09-07T17:36:27.233Z",
+          "updatedAt": "2026-09-07T17:36:27.233Z"
+        }
+      ],
+      "images": [
+        {
+          "id": "6c655666-e649-4083-a6b4-0b019937a385",
+          "carId": "c78a7595-0544-406b-987d-7133dae108d7",
+          "imageUrl": "/uploads/cars/1788802724366-f2999423f73f78.png",
+          "sortOrder": 0,
+          "isPrimary": true,
+          "altText": "UAT Fleet v1 | Mahindra XUV700 | Front",
+          "createdAt": "2026-09-07T17:38:44.379Z"
+        }
+      ],
+      "features": [
+        {
+          "id": "3bf180d9-a190-4159-8ce4-2ee0de2ab50f",
+          "carId": "c78a7595-0544-406b-987d-7133dae108d7",
+          "name": "7 Seater",
+          "iconKey": null
+        },
+        {
+          "id": "7a659b49-0786-4799-9661-110bb53f4ebe",
+          "carId": "c78a7595-0544-406b-987d-7133dae108d7",
+          "name": "ABS",
+          "iconKey": null
+        },
+        {
+          "id": "322c324b-f998-4589-b98f-dd786f3a1c9a",
+          "carId": "c78a7595-0544-406b-987d-7133dae108d7",
+          "name": "Air Conditioning",
+          "iconKey": null
+        },
+        {
+          "id": "8535baf0-a041-4e74-b018-3af2b0f1c6eb",
+          "carId": "c78a7595-0544-406b-987d-7133dae108d7",
+          "name": "Airbags",
+          "iconKey": null
+        },
+        {
+          "id": "98a10463-2b2d-487e-a448-5b1ba8d8628f",
+          "carId": "c78a7595-0544-406b-987d-7133dae108d7",
+          "name": "Bluetooth",
+          "iconKey": null
+        }
+      ],
+      "availability": []
+    },
+    {
+      "registrationNumber": "UAT-MH01-0009",
+      "brand": "Mahindra",
+      "model": "Scorpio N",
+      "variant": "Z8 Diesel AT",
+      "fuelType": "diesel",
+      "transmission": "automatic",
+      "seatingCapacity": 7,
+      "manufacturingYear": 2024,
+      "odometer": 25600,
+      "status": "available",
+      "id": "93913ed5-db88-4e4a-b943-95fb8911101a",
+      "pricing": [
+        {
+          "id": "31c1c009-8b8b-426a-af35-805ba3abbd53",
+          "carId": "93913ed5-db88-4e4a-b943-95fb8911101a",
+          "hourlyPrice": "400",
+          "dailyPrice": "4000",
+          "weeklyPrice": "24000",
+          "monthlyPrice": "80000",
+          "extraHourPrice": "430",
+          "extraKmPrice": "22",
+          "securityDeposit": "10000",
+          "currencyCode": "INR",
+          "effectiveFrom": "2026-08-31T18:30:00.000Z",
+          "effectiveTo": null,
+          "status": "active",
+          "createdAt": "2026-09-07T17:36:27.807Z",
+          "updatedAt": "2026-09-07T17:36:27.807Z"
+        }
+      ],
+      "images": [
+        {
+          "id": "27bfacbe-c4a5-4f79-81fc-7692fe44bf69",
+          "carId": "93913ed5-db88-4e4a-b943-95fb8911101a",
+          "imageUrl": "/uploads/cars/1788802724643-93fdd5e3b200c8.png",
+          "sortOrder": 0,
+          "isPrimary": true,
+          "altText": "UAT Fleet v1 | Mahindra Scorpio N | Front",
+          "createdAt": "2026-09-07T17:38:44.658Z"
+        }
+      ],
+      "features": [
+        {
+          "id": "a1b5e78f-648c-4578-89bc-1d1be8b186f5",
+          "carId": "93913ed5-db88-4e4a-b943-95fb8911101a",
+          "name": "7 Seater",
+          "iconKey": null
+        },
+        {
+          "id": "d48576dd-a8fc-4d14-b086-3af1b2227e57",
+          "carId": "93913ed5-db88-4e4a-b943-95fb8911101a",
+          "name": "ABS",
+          "iconKey": null
+        },
+        {
+          "id": "62ed2168-e3f1-4312-87c0-c8944c5a1955",
+          "carId": "93913ed5-db88-4e4a-b943-95fb8911101a",
+          "name": "Air Conditioning",
+          "iconKey": null
+        },
+        {
+          "id": "93495239-552a-4a1f-82c3-326f36015ae8",
+          "carId": "93913ed5-db88-4e4a-b943-95fb8911101a",
+          "name": "Airbags",
+          "iconKey": null
+        },
+        {
+          "id": "768a6c49-7303-4811-9d7e-97137e95fe1e",
+          "carId": "93913ed5-db88-4e4a-b943-95fb8911101a",
+          "name": "Bluetooth",
+          "iconKey": null
+        }
+      ],
+      "availability": []
+    },
+    {
+      "registrationNumber": "UAT-MH01-0010",
+      "brand": "Kia",
+      "model": "Seltos",
+      "variant": "HTX Diesel AT",
+      "fuelType": "diesel",
+      "transmission": "automatic",
+      "seatingCapacity": 5,
+      "manufacturingYear": 2024,
+      "odometer": 27300,
+      "status": "available",
+      "id": "cab40dbd-71be-4ea1-89f2-9df0e719d63b",
+      "pricing": [
+        {
+          "id": "d45b8b90-8fb5-49d4-b411-7cba139a7404",
+          "carId": "cab40dbd-71be-4ea1-89f2-9df0e719d63b",
+          "hourlyPrice": "330",
+          "dailyPrice": "3300",
+          "weeklyPrice": "20000",
+          "monthlyPrice": "67000",
+          "extraHourPrice": "360",
+          "extraKmPrice": "18",
+          "securityDeposit": "7000",
+          "currencyCode": "INR",
+          "effectiveFrom": "2026-08-31T18:30:00.000Z",
+          "effectiveTo": null,
+          "status": "active",
+          "createdAt": "2026-09-07T17:36:28.359Z",
+          "updatedAt": "2026-09-07T17:36:28.359Z"
+        }
+      ],
+      "images": [
+        {
+          "id": "2070c580-f3c0-420e-a19b-03db3acd2575",
+          "carId": "cab40dbd-71be-4ea1-89f2-9df0e719d63b",
+          "imageUrl": "/uploads/cars/1788802724936-a96ac1901d6188.png",
+          "sortOrder": 0,
+          "isPrimary": true,
+          "altText": "UAT Fleet v1 | Kia Seltos | Front",
+          "createdAt": "2026-09-07T17:38:44.955Z"
+        }
+      ],
+      "features": [
+        {
+          "id": "d8866b96-a815-4f93-b68e-67b9e007eea2",
+          "carId": "cab40dbd-71be-4ea1-89f2-9df0e719d63b",
+          "name": "ABS",
+          "iconKey": null
+        },
+        {
+          "id": "28ffa6a1-1fb5-4db0-9709-19c829656091",
+          "carId": "cab40dbd-71be-4ea1-89f2-9df0e719d63b",
+          "name": "Air Conditioning",
+          "iconKey": null
+        },
+        {
+          "id": "118df3f4-6e9d-4958-aac7-a886f4162208",
+          "carId": "cab40dbd-71be-4ea1-89f2-9df0e719d63b",
+          "name": "Airbags",
+          "iconKey": null
+        },
+        {
+          "id": "d20a8abd-946b-44b1-b95b-4db679741065",
+          "carId": "cab40dbd-71be-4ea1-89f2-9df0e719d63b",
+          "name": "Bluetooth",
+          "iconKey": null
+        },
+        {
+          "id": "db00376a-bb11-4bdf-bde7-6b31b71f55b1",
+          "carId": "cab40dbd-71be-4ea1-89f2-9df0e719d63b",
+          "name": "Reverse Camera",
+          "iconKey": null
+        }
+      ],
+      "availability": []
+    },
+    {
+      "registrationNumber": "UAT-MH01-0011",
+      "brand": "Honda",
+      "model": "City",
+      "variant": "ZX CVT",
+      "fuelType": "petrol",
+      "transmission": "automatic",
+      "seatingCapacity": 5,
+      "manufacturingYear": 2024,
+      "odometer": 29000,
+      "status": "available",
+      "id": "e4a00579-9bdc-4931-b099-4e75e3940e5c",
+      "pricing": [
+        {
+          "id": "0fc53ce3-1718-4983-b4d7-9eafd34006ef",
+          "carId": "e4a00579-9bdc-4931-b099-4e75e3940e5c",
+          "hourlyPrice": "300",
+          "dailyPrice": "3000",
+          "weeklyPrice": "18000",
+          "monthlyPrice": "60000",
+          "extraHourPrice": "330",
+          "extraKmPrice": "17",
+          "securityDeposit": "6000",
+          "currencyCode": "INR",
+          "effectiveFrom": "2026-08-31T18:30:00.000Z",
+          "effectiveTo": null,
+          "status": "active",
+          "createdAt": "2026-09-07T17:36:28.909Z",
+          "updatedAt": "2026-09-07T17:36:28.909Z"
+        }
+      ],
+      "images": [
+        {
+          "id": "0d773ffd-2d06-4281-9e6a-9fbb7a66afbd",
+          "carId": "e4a00579-9bdc-4931-b099-4e75e3940e5c",
+          "imageUrl": "/uploads/cars/1788802725253-b5b7e51e41d818.png",
+          "sortOrder": 0,
+          "isPrimary": true,
+          "altText": "UAT Fleet v1 | Honda City | Front",
+          "createdAt": "2026-09-07T17:38:45.274Z"
+        }
+      ],
+      "features": [
+        {
+          "id": "c256862c-2e67-4662-8ac0-d045bb648e8e",
+          "carId": "e4a00579-9bdc-4931-b099-4e75e3940e5c",
+          "name": "ABS",
+          "iconKey": null
+        },
+        {
+          "id": "e7205537-3f4a-4bf6-890d-30a7eb02f908",
+          "carId": "e4a00579-9bdc-4931-b099-4e75e3940e5c",
+          "name": "Air Conditioning",
+          "iconKey": null
+        },
+        {
+          "id": "4c34068c-28ef-4e26-b5c9-b7aead01db00",
+          "carId": "e4a00579-9bdc-4931-b099-4e75e3940e5c",
+          "name": "Airbags",
+          "iconKey": null
+        },
+        {
+          "id": "a74f374d-2357-45d7-8810-4e9100446cfb",
+          "carId": "e4a00579-9bdc-4931-b099-4e75e3940e5c",
+          "name": "Bluetooth",
+          "iconKey": null
+        },
+        {
+          "id": "be7f3745-2bce-4307-bd5f-da43893cb07f",
+          "carId": "e4a00579-9bdc-4931-b099-4e75e3940e5c",
+          "name": "Reverse Camera",
+          "iconKey": null
+        }
+      ],
+      "availability": []
+    },
+    {
+      "registrationNumber": "UAT-MH01-0012",
+      "brand": "Toyota",
+      "model": "Innova Crysta",
+      "variant": "ZX Diesel",
+      "fuelType": "diesel",
+      "transmission": "manual",
+      "seatingCapacity": 7,
+      "manufacturingYear": 2024,
+      "odometer": 30700,
+      "status": "available",
+      "id": "563fb074-8272-4dd1-a378-51141f9e899f",
+      "pricing": [
+        {
+          "id": "9a99ddab-128b-425d-a3eb-f0a843595526",
+          "carId": "563fb074-8272-4dd1-a378-51141f9e899f",
+          "hourlyPrice": "450",
+          "dailyPrice": "4500",
+          "weeklyPrice": "27500",
+          "monthlyPrice": "90000",
+          "extraHourPrice": "480",
+          "extraKmPrice": "23",
+          "securityDeposit": "12000",
+          "currencyCode": "INR",
+          "effectiveFrom": "2026-08-31T18:30:00.000Z",
+          "effectiveTo": null,
+          "status": "active",
+          "createdAt": "2026-09-07T17:36:29.444Z",
+          "updatedAt": "2026-09-07T17:36:29.444Z"
+        }
+      ],
+      "images": [
+        {
+          "id": "b417b38b-06ca-4d92-a898-cdfc79ad935b",
+          "carId": "563fb074-8272-4dd1-a378-51141f9e899f",
+          "imageUrl": "/uploads/cars/1788802725571-fa3879cdcaa6.png",
+          "sortOrder": 0,
+          "isPrimary": true,
+          "altText": "UAT Fleet v1 | Toyota Innova Crysta | Front",
+          "createdAt": "2026-09-07T17:38:45.589Z"
+        }
+      ],
+      "features": [
+        {
+          "id": "c9a5c930-3808-43fa-8e1e-e0e1ef093a41",
+          "carId": "563fb074-8272-4dd1-a378-51141f9e899f",
+          "name": "7 Seater",
+          "iconKey": null
+        },
+        {
+          "id": "8503416c-c9b7-4130-94d8-93ab93e94110",
+          "carId": "563fb074-8272-4dd1-a378-51141f9e899f",
+          "name": "ABS",
+          "iconKey": null
+        },
+        {
+          "id": "c535fa41-ac9d-4f24-94a9-385b52c63372",
+          "carId": "563fb074-8272-4dd1-a378-51141f9e899f",
+          "name": "Air Conditioning",
+          "iconKey": null
+        },
+        {
+          "id": "9cf1e91b-9403-4fce-8921-d85b0d2c2540",
+          "carId": "563fb074-8272-4dd1-a378-51141f9e899f",
+          "name": "Airbags",
+          "iconKey": null
+        },
+        {
+          "id": "21168d83-8f60-473b-85a7-f6ab514e88f4",
+          "carId": "563fb074-8272-4dd1-a378-51141f9e899f",
+          "name": "Bluetooth",
+          "iconKey": null
+        }
+      ],
+      "availability": []
+    },
+    {
+      "registrationNumber": "UAT-MH01-0013",
+      "brand": "Toyota",
+      "model": "Fortuner",
+      "variant": "4x2 Diesel AT",
+      "fuelType": "diesel",
+      "transmission": "automatic",
+      "seatingCapacity": 7,
+      "manufacturingYear": 2024,
+      "odometer": 32400,
+      "status": "available",
+      "id": "f98fa5b7-daf8-4f09-b46d-a15d14e64ad8",
+      "pricing": [
+        {
+          "id": "40e0a0ff-ec18-4d95-8c29-f84dcfad17fb",
+          "carId": "f98fa5b7-daf8-4f09-b46d-a15d14e64ad8",
+          "hourlyPrice": "650",
+          "dailyPrice": "6500",
+          "weeklyPrice": "39000",
+          "monthlyPrice": "130000",
+          "extraHourPrice": "700",
+          "extraKmPrice": "30",
+          "securityDeposit": "20000",
+          "currencyCode": "INR",
+          "effectiveFrom": "2026-08-31T18:30:00.000Z",
+          "effectiveTo": null,
+          "status": "active",
+          "createdAt": "2026-09-07T17:36:29.999Z",
+          "updatedAt": "2026-09-07T17:36:29.999Z"
+        }
+      ],
+      "images": [
+        {
+          "id": "8f14ed8a-0128-4559-9ca6-4b11776c6046",
+          "carId": "f98fa5b7-daf8-4f09-b46d-a15d14e64ad8",
+          "imageUrl": "/uploads/cars/1788802725892-9b0ec1a902f5.png",
+          "sortOrder": 0,
+          "isPrimary": true,
+          "altText": "UAT Fleet v1 | Toyota Fortuner | Front",
+          "createdAt": "2026-09-07T17:38:45.909Z"
+        }
+      ],
+      "features": [
+        {
+          "id": "d202edc8-09e0-4675-a56d-3cc974faaadc",
+          "carId": "f98fa5b7-daf8-4f09-b46d-a15d14e64ad8",
+          "name": "7 Seater",
+          "iconKey": null
+        },
+        {
+          "id": "b05bb4ea-42c0-4e24-b651-8a10cedeead7",
+          "carId": "f98fa5b7-daf8-4f09-b46d-a15d14e64ad8",
+          "name": "ABS",
+          "iconKey": null
+        },
+        {
+          "id": "fa6dfc72-e731-445b-9567-80ab110713ec",
+          "carId": "f98fa5b7-daf8-4f09-b46d-a15d14e64ad8",
+          "name": "Air Conditioning",
+          "iconKey": null
+        },
+        {
+          "id": "f7a46eef-5dc3-4121-aea2-9aa44fd71140",
+          "carId": "f98fa5b7-daf8-4f09-b46d-a15d14e64ad8",
+          "name": "Airbags",
+          "iconKey": null
+        },
+        {
+          "id": "6311f201-120f-4ab0-877c-5414d4d02a76",
+          "carId": "f98fa5b7-daf8-4f09-b46d-a15d14e64ad8",
+          "name": "Bluetooth",
+          "iconKey": null
+        }
+      ],
+      "availability": []
+    },
+    {
+      "registrationNumber": "REG-3936A9796012",
+      "brand": "Toyota",
+      "model": "Camry",
+      "variant": "Hybrid",
+      "fuelType": "hybrid",
+      "transmission": "automatic",
+      "seatingCapacity": 5,
+      "manufacturingYear": 2022,
+      "odometer": 34100,
+      "status": "available",
+      "id": "dc96154a-7035-481b-b335-8fccb6f4d310",
+      "pricing": [
+        {
+          "id": "0712a4b2-16c4-4d24-b64f-b900549ed1cb",
+          "carId": "dc96154a-7035-481b-b335-8fccb6f4d310",
+          "hourlyPrice": "550",
+          "dailyPrice": "5500",
+          "weeklyPrice": "33000",
+          "monthlyPrice": "110000",
+          "extraHourPrice": "600",
+          "extraKmPrice": "25",
+          "securityDeposit": "15000",
+          "currencyCode": "INR",
+          "effectiveFrom": "2026-08-31T18:30:00.000Z",
+          "effectiveTo": null,
+          "status": "active",
+          "createdAt": "2026-09-07T17:00:18.324Z",
+          "updatedAt": "2026-09-07T17:36:30.585Z"
+        }
+      ],
+      "images": [
+        {
+          "id": "353e4bfb-a986-4dbf-a71c-02160c517042",
+          "carId": "dc96154a-7035-481b-b335-8fccb6f4d310",
+          "imageUrl": "/uploads/cars/1788802726245-ff2acf3c388fc8.png",
+          "sortOrder": 0,
+          "isPrimary": true,
+          "altText": "UAT Fleet v1 | Toyota Camry | Front",
+          "createdAt": "2026-09-07T17:38:46.261Z"
+        },
+        {
+          "id": "3ae4d109-9c51-4a59-9f1a-bfcd3c1600ba",
+          "carId": "dc96154a-7035-481b-b335-8fccb6f4d310",
+          "imageUrl": "/uploads/cars/1788802726292-6514f60261957.png",
+          "sortOrder": 0,
+          "isPrimary": false,
+          "altText": "UAT Fleet v1 | Toyota Camry | Side",
+          "createdAt": "2026-09-07T17:38:46.312Z"
+        },
+        {
+          "id": "47f893fc-fcd9-4807-a551-91fadb35be9b",
+          "carId": "dc96154a-7035-481b-b335-8fccb6f4d310",
+          "imageUrl": "/uploads/cars/1788802726353-4d3029ae1cbb28.png",
+          "sortOrder": 0,
+          "isPrimary": false,
+          "altText": "UAT Fleet v1 | Toyota Camry | Rear",
+          "createdAt": "2026-09-07T17:38:46.370Z"
+        },
+        {
+          "id": "a17f26ca-b666-4360-9ee1-7cbd3ab51eb2",
+          "carId": "dc96154a-7035-481b-b335-8fccb6f4d310",
+          "imageUrl": "/uploads/cars/1788802726404-58abf2e11e7298.png",
+          "sortOrder": 0,
+          "isPrimary": false,
+          "altText": "UAT Fleet v1 | Toyota Camry | Interior",
+          "createdAt": "2026-09-07T17:38:46.423Z"
+        }
+      ],
+      "features": [
+        {
+          "id": "18171b5c-59f4-4a86-8d14-592ef91df72c",
+          "carId": "dc96154a-7035-481b-b335-8fccb6f4d310",
+          "name": "ABS",
+          "iconKey": null
+        },
+        {
+          "id": "183bbe38-47b0-4ba9-925b-5cb7c875b112",
+          "carId": "dc96154a-7035-481b-b335-8fccb6f4d310",
+          "name": "Air Conditioning",
+          "iconKey": null
+        },
+        {
+          "id": "e4adb635-b1c9-44e6-933d-e6e9e45f060e",
+          "carId": "dc96154a-7035-481b-b335-8fccb6f4d310",
+          "name": "Airbags",
+          "iconKey": null
+        },
+        {
+          "id": "ed1393c6-64c1-4118-b9fa-651858424c0c",
+          "carId": "dc96154a-7035-481b-b335-8fccb6f4d310",
+          "name": "Bluetooth",
+          "iconKey": null
+        },
+        {
+          "id": "5185b81c-fed0-4888-9184-3c75b6fa4d67",
+          "carId": "dc96154a-7035-481b-b335-8fccb6f4d310",
+          "name": "Reverse Camera",
+          "iconKey": null
+        },
+        {
+          "id": "2b5526a3-8c57-42ef-861c-67ef499fecd1",
+          "carId": "dc96154a-7035-481b-b335-8fccb6f4d310",
+          "name": "x",
+          "iconKey": null
+        }
+      ],
+      "availability": []
+    },
+    {
+      "registrationNumber": "UAT-MH01-0015",
+      "brand": "MG",
+      "model": "Hector",
+      "variant": "Sharp Pro CVT",
+      "fuelType": "petrol",
+      "transmission": "automatic",
+      "seatingCapacity": 5,
+      "manufacturingYear": 2024,
+      "odometer": 35800,
+      "status": "available",
+      "id": "68dec66f-f98a-42e7-880a-2166065c76f3",
+      "pricing": [
+        {
+          "id": "dc7408ad-f9a7-4876-8a56-22d6821a8f99",
+          "carId": "68dec66f-f98a-42e7-880a-2166065c76f3",
+          "hourlyPrice": "380",
+          "dailyPrice": "3800",
+          "weeklyPrice": "23000",
+          "monthlyPrice": "76000",
+          "extraHourPrice": "420",
+          "extraKmPrice": "20",
+          "securityDeposit": "9000",
+          "currencyCode": "INR",
+          "effectiveFrom": "2026-08-31T18:30:00.000Z",
+          "effectiveTo": null,
+          "status": "active",
+          "createdAt": "2026-09-07T17:36:31.399Z",
+          "updatedAt": "2026-09-07T17:36:31.399Z"
+        }
+      ],
+      "images": [
+        {
+          "id": "5b55b05d-1926-4def-8489-51c81f6544b9",
+          "carId": "68dec66f-f98a-42e7-880a-2166065c76f3",
+          "imageUrl": "/uploads/cars/1788802726860-04cdae22acff68.png",
+          "sortOrder": 0,
+          "isPrimary": true,
+          "altText": "UAT Fleet v1 | MG Hector | Front",
+          "createdAt": "2026-09-07T17:38:46.880Z"
+        }
+      ],
+      "features": [
+        {
+          "id": "b2efa67d-2a09-4c01-9b22-af3ad70554b0",
+          "carId": "68dec66f-f98a-42e7-880a-2166065c76f3",
+          "name": "ABS",
+          "iconKey": null
+        },
+        {
+          "id": "1736d5aa-f1c9-41bf-a4f8-aebfe64610e4",
+          "carId": "68dec66f-f98a-42e7-880a-2166065c76f3",
+          "name": "Air Conditioning",
+          "iconKey": null
+        },
+        {
+          "id": "2311da13-dfbb-4372-a52a-8f82e577dbd1",
+          "carId": "68dec66f-f98a-42e7-880a-2166065c76f3",
+          "name": "Airbags",
+          "iconKey": null
+        },
+        {
+          "id": "257ad003-15c1-4d91-bb27-a6ad4fd6f3de",
+          "carId": "68dec66f-f98a-42e7-880a-2166065c76f3",
+          "name": "Bluetooth",
+          "iconKey": null
+        },
+        {
+          "id": "f8753d01-a7b6-4391-84fe-50fee31a08d4",
+          "carId": "68dec66f-f98a-42e7-880a-2166065c76f3",
+          "name": "Reverse Camera",
+          "iconKey": null
+        }
+      ],
+      "availability": []
+    }
+  ],
+  "counts": {
+    "carsCreated": 0,
+    "carsUpdated": 0,
+    "carsExisting": 15,
+    "pricesCreated": 0,
+    "pricesUpdated": 0,
+    "pricesExisting": 16,
+    "featuresCreated": 0,
+    "featuresReused": 75,
+    "imagesCreated": 0,
+    "imagesReused": 18,
+    "availabilityCreated": 0
+  },
+  "interval": {
+    "pickupDateTime": "2026-09-08T04:30:00.000Z",
+    "returnDateTime": "2026-09-09T04:30:00.000Z"
+  },
+  "catalogueCount": 15,
+  "availabilityCount": 15,
+  "quoteInterval": {
+    "pickupDateTime": "2026-09-08T04:30:00.000Z",
+    "returnDateTime": "2026-09-09T04:30:00.000Z"
+  },
+  "quotes": [
+    {
+      "model": "Swift",
+      "carId": "cfde7ac8-b29a-48c7-a949-70ad29e78659",
+      "tokenReturned": true,
+      "quoteId": "9d56a5be-8d5d-4521-8b1e-ee6ce6e0b2bb",
+      "currencyCode": "INR",
+      "duration": {
+        "totalMinutes": 1440,
+        "billableHours": 24,
+        "breakdown": [
+          {
+            "unit": "day",
+            "count": 1,
+            "rate": 1800,
+            "amount": 1800
+          }
+        ],
+        "rentalSubtotal": 1800
+      },
+      "pricing": {
+        "pricingId": "4ce3e0de-0026-42f9-8242-f5f70e52acf7",
+        "rentalSubtotal": 1800,
+        "securityDeposit": 3000,
+        "payableAmount": 4800
+      },
+      "expiresAt": "2026-09-07T17:51:57.646Z"
+    },
+    {
+      "model": "Baleno",
+      "carId": "9f2313e6-f2e1-438c-bf8a-32a6b6503d62",
+      "tokenReturned": true,
+      "quoteId": "a06df519-7169-48b2-9ced-a4ba7d0ebb3f",
+      "currencyCode": "INR",
+      "duration": {
+        "totalMinutes": 1440,
+        "billableHours": 24,
+        "breakdown": [
+          {
+            "unit": "day",
+            "count": 1,
+            "rate": 2000,
+            "amount": 2000
+          }
+        ],
+        "rentalSubtotal": 2000
+      },
+      "pricing": {
+        "pricingId": "710f81a8-0f13-4ea9-8559-1d88dc23adad",
+        "rentalSubtotal": 2000,
+        "securityDeposit": 3500,
+        "payableAmount": 5500
+      },
+      "expiresAt": "2026-09-07T17:51:57.660Z"
+    },
+    {
+      "model": "i20",
+      "carId": "080cbda9-d5fe-4e6d-bf04-a25e2755a9a7",
+      "tokenReturned": true,
+      "quoteId": "24ea804d-bf38-4eb1-87a5-fa84146cea28",
+      "currencyCode": "INR",
+      "duration": {
+        "totalMinutes": 1440,
+        "billableHours": 24,
+        "breakdown": [
+          {
+            "unit": "day",
+            "count": 1,
+            "rate": 2100,
+            "amount": 2100
+          }
+        ],
+        "rentalSubtotal": 2100
+      },
+      "pricing": {
+        "pricingId": "6e3f21b1-cb22-47a3-a596-48095607704f",
+        "rentalSubtotal": 2100,
+        "securityDeposit": 3500,
+        "payableAmount": 5600
+      },
+      "expiresAt": "2026-09-07T17:51:57.675Z"
+    },
+    {
+      "model": "Creta",
+      "carId": "7c002acf-5ad6-4179-86a2-80281deb2f19",
+      "tokenReturned": true,
+      "quoteId": "b3e5ff23-5f06-4151-bf6b-8a1927e54e22",
+      "currencyCode": "INR",
+      "duration": {
+        "totalMinutes": 1440,
+        "billableHours": 24,
+        "breakdown": [
+          {
+            "unit": "day",
+            "count": 1,
+            "rate": 3200,
+            "amount": 3200
+          }
+        ],
+        "rentalSubtotal": 3200
+      },
+      "pricing": {
+        "pricingId": "13fbe9d3-0b67-440f-89b6-535d690ec029",
+        "rentalSubtotal": 3200,
+        "securityDeposit": 7000,
+        "payableAmount": 10200
+      },
+      "expiresAt": "2026-09-07T17:51:57.690Z"
+    },
+    {
+      "model": "Venue",
+      "carId": "10a38e07-f769-4816-8aba-967185ad206e",
+      "tokenReturned": true,
+      "quoteId": "42983d10-802d-4d99-aeb3-18e822dccbea",
+      "currencyCode": "INR",
+      "duration": {
+        "totalMinutes": 1440,
+        "billableHours": 24,
+        "breakdown": [
+          {
+            "unit": "day",
+            "count": 1,
+            "rate": 2500,
+            "amount": 2500
+          }
+        ],
+        "rentalSubtotal": 2500
+      },
+      "pricing": {
+        "pricingId": "966520cd-a3d1-4c23-bf4b-22c72dc8b5b6",
+        "rentalSubtotal": 2500,
+        "securityDeposit": 5000,
+        "payableAmount": 7500
+      },
+      "expiresAt": "2026-09-07T17:51:57.703Z"
+    },
+    {
+      "model": "Nexon",
+      "carId": "ad8e18a1-8e70-4197-b950-46f057a484e1",
+      "tokenReturned": true,
+      "quoteId": "1155e143-130f-44fa-b8fa-9f7e04db688b",
+      "currencyCode": "INR",
+      "duration": {
+        "totalMinutes": 1440,
+        "billableHours": 24,
+        "breakdown": [
+          {
+            "unit": "day",
+            "count": 1,
+            "rate": 2800,
+            "amount": 2800
+          }
+        ],
+        "rentalSubtotal": 2800
+      },
+      "pricing": {
+        "pricingId": "14505738-a967-4e67-aa10-82791db4cc08",
+        "rentalSubtotal": 2800,
+        "securityDeposit": 5000,
+        "payableAmount": 7800
+      },
+      "expiresAt": "2026-09-07T17:51:57.718Z"
+    },
+    {
+      "model": "Punch",
+      "carId": "8b961fab-6eee-4858-819c-8c4c339f6216",
+      "tokenReturned": true,
+      "quoteId": "9c906e00-a258-48c6-a32a-1532ce75d0cd",
+      "currencyCode": "INR",
+      "duration": {
+        "totalMinutes": 1440,
+        "billableHours": 24,
+        "breakdown": [
+          {
+            "unit": "day",
+            "count": 1,
+            "rate": 2300,
+            "amount": 2300
+          }
+        ],
+        "rentalSubtotal": 2300
+      },
+      "pricing": {
+        "pricingId": "21d57e72-47b8-41ec-9c8d-315f11b25a49",
+        "rentalSubtotal": 2300,
+        "securityDeposit": 4000,
+        "payableAmount": 6300
+      },
+      "expiresAt": "2026-09-07T17:51:57.733Z"
+    },
+    {
+      "model": "XUV700",
+      "carId": "c78a7595-0544-406b-987d-7133dae108d7",
+      "tokenReturned": true,
+      "quoteId": "5e797dff-1937-4fbe-8ac2-ed6fb4d7a0ff",
+      "currencyCode": "INR",
+      "duration": {
+        "totalMinutes": 1440,
+        "billableHours": 24,
+        "breakdown": [
+          {
+            "unit": "day",
+            "count": 1,
+            "rate": 4200,
+            "amount": 4200
+          }
+        ],
+        "rentalSubtotal": 4200
+      },
+      "pricing": {
+        "pricingId": "eb95b2b0-7a90-49ba-96e2-5b6b86e4a2ef",
+        "rentalSubtotal": 4200,
+        "securityDeposit": 10000,
+        "payableAmount": 14200
+      },
+      "expiresAt": "2026-09-07T17:51:57.743Z"
+    },
+    {
+      "model": "Scorpio N",
+      "carId": "93913ed5-db88-4e4a-b943-95fb8911101a",
+      "tokenReturned": true,
+      "quoteId": "759c2454-66a7-4973-86dc-176110556c78",
+      "currencyCode": "INR",
+      "duration": {
+        "totalMinutes": 1440,
+        "billableHours": 24,
+        "breakdown": [
+          {
+            "unit": "day",
+            "count": 1,
+            "rate": 4000,
+            "amount": 4000
+          }
+        ],
+        "rentalSubtotal": 4000
+      },
+      "pricing": {
+        "pricingId": "31c1c009-8b8b-426a-af35-805ba3abbd53",
+        "rentalSubtotal": 4000,
+        "securityDeposit": 10000,
+        "payableAmount": 14000
+      },
+      "expiresAt": "2026-09-07T17:51:57.753Z"
+    },
+    {
+      "model": "Seltos",
+      "carId": "cab40dbd-71be-4ea1-89f2-9df0e719d63b",
+      "tokenReturned": true,
+      "quoteId": "1f6f20e9-41d8-4ebe-a586-ae5dfac94d68",
+      "currencyCode": "INR",
+      "duration": {
+        "totalMinutes": 1440,
+        "billableHours": 24,
+        "breakdown": [
+          {
+            "unit": "day",
+            "count": 1,
+            "rate": 3300,
+            "amount": 3300
+          }
+        ],
+        "rentalSubtotal": 3300
+      },
+      "pricing": {
+        "pricingId": "d45b8b90-8fb5-49d4-b411-7cba139a7404",
+        "rentalSubtotal": 3300,
+        "securityDeposit": 7000,
+        "payableAmount": 10300
+      },
+      "expiresAt": "2026-09-07T17:51:57.762Z"
+    },
+    {
+      "model": "City",
+      "carId": "e4a00579-9bdc-4931-b099-4e75e3940e5c",
+      "tokenReturned": true,
+      "quoteId": "fdb07949-4763-4da8-a4c2-9f1b5927a641",
+      "currencyCode": "INR",
+      "duration": {
+        "totalMinutes": 1440,
+        "billableHours": 24,
+        "breakdown": [
+          {
+            "unit": "day",
+            "count": 1,
+            "rate": 3000,
+            "amount": 3000
+          }
+        ],
+        "rentalSubtotal": 3000
+      },
+      "pricing": {
+        "pricingId": "0fc53ce3-1718-4983-b4d7-9eafd34006ef",
+        "rentalSubtotal": 3000,
+        "securityDeposit": 6000,
+        "payableAmount": 9000
+      },
+      "expiresAt": "2026-09-07T17:51:57.772Z"
+    },
+    {
+      "model": "Innova Crysta",
+      "carId": "563fb074-8272-4dd1-a378-51141f9e899f",
+      "tokenReturned": true,
+      "quoteId": "2a422992-ad1d-4432-a204-58c274f72732",
+      "currencyCode": "INR",
+      "duration": {
+        "totalMinutes": 1440,
+        "billableHours": 24,
+        "breakdown": [
+          {
+            "unit": "day",
+            "count": 1,
+            "rate": 4500,
+            "amount": 4500
+          }
+        ],
+        "rentalSubtotal": 4500
+      },
+      "pricing": {
+        "pricingId": "9a99ddab-128b-425d-a3eb-f0a843595526",
+        "rentalSubtotal": 4500,
+        "securityDeposit": 12000,
+        "payableAmount": 16500
+      },
+      "expiresAt": "2026-09-07T17:51:57.782Z"
+    },
+    {
+      "model": "Fortuner",
+      "carId": "f98fa5b7-daf8-4f09-b46d-a15d14e64ad8",
+      "tokenReturned": true,
+      "quoteId": "23dafd24-8082-4d18-98c0-eee6cd139b46",
+      "currencyCode": "INR",
+      "duration": {
+        "totalMinutes": 1440,
+        "billableHours": 24,
+        "breakdown": [
+          {
+            "unit": "day",
+            "count": 1,
+            "rate": 6500,
+            "amount": 6500
+          }
+        ],
+        "rentalSubtotal": 6500
+      },
+      "pricing": {
+        "pricingId": "40e0a0ff-ec18-4d95-8c29-f84dcfad17fb",
+        "rentalSubtotal": 6500,
+        "securityDeposit": 20000,
+        "payableAmount": 26500
+      },
+      "expiresAt": "2026-09-07T17:51:57.792Z"
+    },
+    {
+      "model": "Camry",
+      "carId": "dc96154a-7035-481b-b335-8fccb6f4d310",
+      "tokenReturned": true,
+      "quoteId": "40c31c2a-7034-4d77-bd34-e043a5461aed",
+      "currencyCode": "INR",
+      "duration": {
+        "totalMinutes": 1440,
+        "billableHours": 24,
+        "breakdown": [
+          {
+            "unit": "day",
+            "count": 1,
+            "rate": 5500,
+            "amount": 5500
+          }
+        ],
+        "rentalSubtotal": 5500
+      },
+      "pricing": {
+        "pricingId": "0712a4b2-16c4-4d24-b64f-b900549ed1cb",
+        "rentalSubtotal": 5500,
+        "securityDeposit": 15000,
+        "payableAmount": 20500
+      },
+      "expiresAt": "2026-09-07T17:51:57.803Z"
+    },
+    {
+      "model": "Hector",
+      "carId": "68dec66f-f98a-42e7-880a-2166065c76f3",
+      "tokenReturned": true,
+      "quoteId": "285bc9c3-ede0-417e-b5fa-332df8fd3fc1",
+      "currencyCode": "INR",
+      "duration": {
+        "totalMinutes": 1440,
+        "billableHours": 24,
+        "breakdown": [
+          {
+            "unit": "day",
+            "count": 1,
+            "rate": 3800,
+            "amount": 3800
+          }
+        ],
+        "rentalSubtotal": 3800
+      },
+      "pricing": {
+        "pricingId": "dc7408ad-f9a7-4876-8a56-22d6821a8f99",
+        "rentalSubtotal": 3800,
+        "securityDeposit": 9000,
+        "payableAmount": 12800
+      },
+      "expiresAt": "2026-09-07T17:51:57.812Z"
+    }
+  ],
+  "filters": {
+    "brand": "PASS",
+    "fuelType": "PASS",
+    "transmission": "PASS",
+    "seatingCapacity": "PASS",
+    "branchId": "PASS"
+  },
+  "venueBlock": "PASS",
+  "admin": {
+    "list": "PASS",
+    "detail": "PASS",
+    "pricing": "PASS",
+    "images": "PASS",
+    "features": "PASS",
+    "availability": "PASS"
+  }
+}

@@ -25,6 +25,20 @@ describe('JWT utils', () => {
     expect(decoded.sub).toBe('user-123');
   });
 
+  it('issues distinct refresh tokens for the same session within one second', () => {
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(2000000000000);
+    try {
+      const sessionPayload = { sub: 'user-123', sessionId: 'session-123', type: 'refresh' };
+      const first = signRefreshToken(sessionPayload);
+      const second = signRefreshToken(sessionPayload);
+      expect(first === second).toBe(false);
+      expect(verifyRefreshToken(first).sessionId).toBe('session-123');
+      expect(verifyRefreshToken(second).sessionId).toBe('session-123');
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it('rejects an access token verified with the wrong secret', () => {
     const token = signAccessToken(payload);
     expect(() => jwt.verify(token, 'wrong_secret_value_12345')).toThrow();

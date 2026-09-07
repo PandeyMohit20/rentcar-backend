@@ -1,6 +1,7 @@
 'use strict';
 
 const jwt = require('jsonwebtoken');
+const { randomUUID } = require('crypto');
 const { env } = require('../config/env');
 
 /**
@@ -29,6 +30,8 @@ function verifyAccessToken(token) {
 
 function signRefreshToken(payload) {
   return jwt.sign(payload, env.JWT_REFRESH_SECRET, {
+    // Rotation can occur within the same JWT iat second; each stored hash must be unique.
+    jwtid: randomUUID(),
     expiresIn: env.JWT_REFRESH_EXPIRES_IN,
     audience: AUDIENCE,
     issuer: REFRESH_ISSUER,
