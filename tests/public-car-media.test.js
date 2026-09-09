@@ -7,7 +7,7 @@ const { createApp } = require('../src/app');
 
 describe('Public car media security headers', () => {
   const filename = 'test-public-car-media.svg';
-  const directory = path.join(process.cwd(), 'uploads', 'cars');
+  const directory = path.join(require('../src/config/uploads').uploadRoot, 'cars');
   const file = path.join(directory, filename);
   let app;
 

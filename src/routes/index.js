@@ -60,6 +60,7 @@ router.use('/admin/kyc', adminKycRouter);
 router.use('/admin/bookings', adminBookingReadRouter);
 router.use('/vendor/bookings', vendorBookingReadRouter);
 router.get('/bookings/:bookingId/refunds', authenticate, validate({ params: refundSchemas.bookingId }), RefundsController.listForBooking);
+router.get('/bookings/:bookingId/invoice/download', authenticate, validate({ params: invoiceSchemas.bookingId }), InvoicesController.download);
 router.get('/bookings/:bookingId/invoice', authenticate, validate({ params: invoiceSchemas.bookingId }), InvoicesController.getForBooking);
 
 // Future modules — 501 Not Implemented placeholders.

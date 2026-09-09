@@ -22,6 +22,7 @@ const bookingListSelect = {
 
 const bookingDetailSelect = {
   ...bookingListSelect,
+  financialSnapshot: true,
   subtotal: true,
   tax: true,
   discount: true,
@@ -205,6 +206,7 @@ async function hydrateDetail(booking) {
         select: {
           id: true,
           invoiceNumber: true,
+          snapshot: true,
           subtotal: true,
           tax: true,
           discount: true,

@@ -8,7 +8,7 @@ const { prisma, resetStore, seedRole, seedUser } = require('./helpers/auth');
 const { signAccessToken } = require('../src/utils/jwt');
 
 const fixture = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
-const uploads = path.join(process.cwd(), 'uploads', 'cars');
+const uploads = path.join(require('../src/config/uploads').uploadRoot, 'cars');
 const sentinel = path.join(process.cwd(), 'tests', '.car-image-sentinel.txt');
 
 describe('Fleet car images and features', () => {
@@ -31,6 +31,23 @@ describe('Fleet car images and features', () => {
   afterEach(() => { if (fs.existsSync(uploads)) fs.readdirSync(uploads).forEach((file) => fs.unlinkSync(path.join(uploads, file))); });
 
   const image = (token, carId = car.id, name = 'photo.jpg', type = 'image/jpeg') => request(app).post(`/api/v1/fleet/${carId}/images`).set('Authorization', `Bearer ${token}`).attach('file', fixture, { filename: name, contentType: type });
+
+  it('rejects unauthenticated image upload before writing files', async () => {
+    const response = await request(app).post('/api/v1/fleet/' + car.id + '/images').attach('file', fixture, { filename: 'photo.jpg', contentType: 'image/jpeg' });
+    expect(response.status).toBe(401);
+    expect(await prisma.carImage.count({ where: { carId: car.id } })).toBe(0);
+  });
+
+  it('rejects oversized images without leaving files or image records', async () => {
+    const before = fs.readdirSync(uploads);
+    const response = await request(app).post('/api/v1/fleet/' + car.id + '/images')
+      .set('Authorization', 'Bearer ' + editorToken)
+      .attach('file', Buffer.alloc(10 * 1024 * 1024 + 1), { filename: 'large.jpg', contentType: 'image/jpeg' });
+    expect(response.status).toBe(413);
+    expect(response.body.error.code).toBe('LIMIT_FILE_SIZE');
+    expect(await prisma.carImage.count({ where: { carId: car.id } })).toBe(0);
+    expect(fs.readdirSync(uploads)).toEqual(before);
+  });
 
   it('protects image list and returns an empty authorized list', async () => {
     expect((await request(app).get(`/api/v1/fleet/${car.id}/images`)).status).toBe(401);

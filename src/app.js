@@ -47,7 +47,7 @@ function createApp() {
   app.use(cookieParser());
   app.use(
     '/uploads/cars',
-    express.static(path.join(process.cwd(), 'uploads', 'cars'), {
+    express.static(path.join(require('./config/uploads').uploadRoot, 'cars'), {
       setHeaders(res) {
         // Fleet images are public catalogue assets embedded by the customer/admin origins.
         // Helmet's default same-origin policy remains in force everywhere else.

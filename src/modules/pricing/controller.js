@@ -17,5 +17,5 @@ const PricingController = {
   remove: async (req, res, next) => { try { await record(req.params.carId, req.params.pricingId); await prisma.carPricing.delete({ where: { id: req.params.pricingId } }); return success(res, { message: 'Car pricing record deleted successfully.', data: { success: true } }); } catch (err) { return next(err); } },
 };
 const { createTrustedQuote } = require('./service');
-const QuoteController = { create: async (req, res, next) => { try { return created(res, { message: 'Trusted pricing quote created successfully.', data: await createTrustedQuote(req.body) }); } catch (err) { return next(err); } } };
+const QuoteController = { create: async (req, res, next) => { try { return created(res, { message: 'Trusted pricing quote created successfully.', data: await createTrustedQuote({ ...req.body, userId: req.user?.sub }) }); } catch (err) { return next(err); } } };
 module.exports = { PricingController, QuoteController };

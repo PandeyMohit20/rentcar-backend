@@ -57,7 +57,7 @@ describe('vendor-member document access and private storage', () => {
   });
 
   it('permits kyc reviewers and safely supports legacy references while rejecting unsafe references', async () => {
-    const legacyRoot = path.join(process.cwd(), 'uploads', 'vendors'); fs.mkdirSync(legacyRoot, { recursive: true });
+    const legacyRoot = path.join(require('../src/config/uploads').uploadRoot, 'vendors'); fs.mkdirSync(legacyRoot, { recursive: true });
     fs.writeFileSync(path.join(legacyRoot, 'historic.pdf'), pdf);
     const legacy = await prisma.vendorDocument.create({ data: { vendorId: vendor.id, documentType: 'gst', documentUrl: '/uploads/vendors/historic.pdf', status: 'pending' } });
     expect((await request(app).get(`/api/v1/vendors/${vendor.id}/documents`).set('Authorization', `Bearer ${reviewerToken}`)).status).toBe(200);

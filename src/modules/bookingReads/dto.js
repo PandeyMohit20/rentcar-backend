@@ -100,6 +100,7 @@ function detailDto(aggregate, callerCanPickup) {
       paymentStatus: booking.paymentStatus,
       startAt: booking.startAt,
       endAt: booking.endAt,
+      financialSnapshot: booking.financialSnapshot || null,
       subtotal: booking.subtotal,
       tax: booking.tax,
       discount: booking.discount,
@@ -149,6 +150,8 @@ function detailDto(aggregate, callerCanPickup) {
       ? {
           id: aggregate.invoice.id,
           invoiceNumber: aggregate.invoice.invoiceNumber,
+          snapshot: aggregate.invoice.snapshot || null,
+          pdfBlocker: require('../invoices/pdf').pdfBlocker(aggregate.invoice),
           subtotal: aggregate.invoice.subtotal,
           tax: aggregate.invoice.tax,
           discount: aggregate.invoice.discount,

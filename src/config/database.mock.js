@@ -197,6 +197,7 @@ function createModel(modelName, store, hooks = {}) {
     },
 
     async create({ data }) {
+      if (modelName === 'emailDelivery' && list().some(r => r.dedupeKey === data.dedupeKey)) { const err = new Error('Duplicate delivery'); err.code = 'P2002'; throw err; }
       const id = data.id || uuid.v4();
       const now = new Date();
       const record = {
@@ -219,7 +220,8 @@ function createModel(modelName, store, hooks = {}) {
         err.code = 'P2025';
         throw err;
       }
-      Object.assign(record, clone(data), { updatedAt: new Date() });
+      const values = Object.fromEntries(Object.entries(data).map(([key, value]) => [key, value && typeof value === 'object' && 'increment' in value ? Number(record[key] || 0) + value.increment : clone(value)]));
+      Object.assign(record, values, { updatedAt: new Date() });
       return { ...record };
     },
 
@@ -234,8 +236,7 @@ function createModel(modelName, store, hooks = {}) {
         Object.entries(where).every(([key, value]) => valuesEqual(r[key], value)),
       );
       if (record) {
-        Object.assign(record, clone(update), { updatedAt: new Date() });
-        return { ...record };
+        return api.update({ where, data: update });
       }
       return api.create({ data: create });
     },
@@ -297,6 +298,9 @@ function createMockPrisma() {
     refund: [],
     refundWebhookEvent: [],
     invoice: [],
+    setting: [],
+    invoiceSequence: [],
+    emailDelivery: [],
   };
 
   const prisma = {
@@ -359,6 +363,9 @@ function createMockPrisma() {
     refund: createModel('refund', store),
     refundWebhookEvent: createModel('refundWebhookEvent', store),
     invoice: createModel('invoice', store),
+    setting: createModel('setting', store),
+    invoiceSequence: createModel('invoiceSequence', store),
+    emailDelivery: createModel('emailDelivery', store),
   };
 
   const createBooking = prisma.booking.create;

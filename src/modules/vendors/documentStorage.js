@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { vendorDocumentDir } = require('../../middlewares/upload');
 
-const legacyVendorDocumentDir = path.resolve(process.cwd(), 'uploads', 'vendors');
+const legacyVendorDocumentDir = path.resolve(require('../../config/uploads').uploadRoot, 'vendors');
 const privateVendorDocumentDir = path.resolve(vendorDocumentDir);
 
 function resolveWithin(root, filename) {

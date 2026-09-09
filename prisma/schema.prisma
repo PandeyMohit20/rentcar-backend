@@ -476,6 +476,7 @@ model Address {
 // ============================================================
 
 model Vendor {
+  taxProfile         Json?                  @map("tax_profile")
   id                 String                 @id @default(uuid()) @db.VarChar(36)
   vendorCode         String                 @unique @map("vendor_code") @db.VarChar(50)
   companyName        String                 @map("company_name") @db.VarChar(255)
@@ -860,6 +861,8 @@ model GpsDevice {
 // ============================================================
 
 model Booking {
+  financialSnapshot  Json?             @map("financial_snapshot")
+  billingSnapshot    Json?             @map("billing_snapshot")
   id                 String            @id @default(uuid()) @db.VarChar(36)
   bookingNumber      String            @unique @map("booking_number") @db.VarChar(50)
   userId             String            @map("user_id") @db.VarChar(36) // customer
@@ -1253,7 +1256,15 @@ model CouponUsage {
   @@map("coupon_usage")
 }
 
+model InvoiceSequence {
+  fiscalYear Int @id @map("fiscal_year")
+  nextNumber Int @default(0) @map("next_number")
+
+  @@map("invoice_sequences")
+}
+
 model Invoice {
+  snapshot      Json?
   id            String            @id @default(uuid()) @db.VarChar(36)
   invoiceNumber String            @unique @map("invoice_number") @db.VarChar(50)
   bookingId     String?           @map("booking_id") @db.VarChar(36)
@@ -1324,6 +1335,28 @@ model RatingSummary {
 // ============================================================
 // NOTIFICATIONS & SUPPORT
 // ============================================================
+
+model EmailDelivery {
+  id                String   @id @default(uuid()) @db.VarChar(36)
+  dedupeKey         String   @unique @map("dedupe_key") @db.VarChar(64)
+  bookingId         String   @map("booking_id") @db.VarChar(36)
+  eventType         String   @map("event_type") @db.VarChar(100)
+  recipient         String   @db.VarChar(255)
+  payload           Json
+  status            String   @default("pending") @db.VarChar(30)
+  attempts          Int      @default(0)
+  nextAttemptAt     DateTime @default(now()) @map("next_attempt_at")
+  claimedAt         DateTime? @map("claimed_at")
+  acceptedAt        DateTime? @map("accepted_at")
+  providerMessageId String?  @map("provider_message_id") @db.VarChar(255)
+  lastErrorCode     String?  @map("last_error_code") @db.VarChar(100)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([bookingId])
+  @@index([status, nextAttemptAt])
+  @@map("email_deliveries")
+}
 
 model Notification {
   id        String                  @id @default(uuid()) @db.VarChar(36)

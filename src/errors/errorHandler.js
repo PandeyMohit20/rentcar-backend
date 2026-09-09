@@ -55,6 +55,11 @@ function errorHandler(err, req, res, next) {
   let code = err.code || errorCodes.INTERNAL_ERROR;
   let details = err.details;
 
+  if (err.name === 'MulterError' && err.code === 'LIMIT_FILE_SIZE') {
+    statusCode = 413;
+    message = 'Uploaded file exceeds the allowed size limit.';
+  }
+
   // Prisma known errors
   if (isPrismaError(err)) {
     const mapped = PRISMA_ERROR_MAP[err.code];

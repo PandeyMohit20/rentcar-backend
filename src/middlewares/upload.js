@@ -1,3 +1,4 @@
+const { uploadRoot } = require('../config/uploads');
 'use strict';
 
 const multer = require('multer');
@@ -5,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
-const vendorDocumentDir = path.join(process.cwd(), 'uploads', 'private', 'vendors');
+const vendorDocumentDir = path.join(uploadRoot, 'private', 'vendors');
 
 // Create upload directory if it does not exist
 if (!fs.existsSync(vendorDocumentDir)) {
@@ -75,7 +76,7 @@ const vendorDocumentUpload = multer({
   },
 });
 
-const carImageDir = path.join(process.cwd(), 'uploads', 'cars');
+const carImageDir = path.join(uploadRoot, 'cars');
 if (!fs.existsSync(carImageDir)) fs.mkdirSync(carImageDir, { recursive: true });
 const carImageUpload = multer({
   storage: multer.diskStorage({
@@ -89,11 +90,11 @@ const carImageUpload = multer({
   },
   limits: { fileSize: 10 * 1024 * 1024 },
 });
-const carDocumentDir = path.join(process.cwd(), 'uploads', 'private', 'cars');
+const carDocumentDir = path.join(uploadRoot, 'private', 'cars');
 if (!fs.existsSync(carDocumentDir)) fs.mkdirSync(carDocumentDir, { recursive: true });
 const carDocumentUpload = multer({ storage: multer.diskStorage({ destination: (_r,_f,cb)=>cb(null,carDocumentDir), filename: (_r,file,cb)=>cb(null,`${Date.now()}-${Math.random().toString(16).slice(2)}${path.extname(file.originalname).toLowerCase()}`) }), fileFilter: (_r,file,cb)=>{const ext=path.extname(file.originalname).toLowerCase();if(['.pdf','.jpg','.jpeg','.png','.webp'].includes(ext)&&['application/pdf','image/jpeg','image/png','image/webp'].includes(file.mimetype))return cb(null,true);const e=new Error('Only PDF, JPG, PNG, and WEBP car documents are allowed.');e.statusCode=400;return cb(e);}, limits:{fileSize:10*1024*1024} });
 
-const userKycDocumentDir = path.join(process.cwd(), 'uploads', 'private', 'users');
+const userKycDocumentDir = path.join(uploadRoot, 'private', 'users');
 if (!fs.existsSync(userKycDocumentDir)) fs.mkdirSync(userKycDocumentDir, { recursive: true });
 const userKycDocumentUpload = multer({
   storage: multer.diskStorage({

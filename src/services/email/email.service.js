@@ -22,8 +22,12 @@ async function send(message) {
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: message.to,
     subject: message.subject,
-    text: buildText(message),
-    html: buildHtml(message),
+    text: message.text || buildText(message),
+    html: message.html || buildHtml(message),
+    attachments: message.attachments || [],
+    messageId: message.messageId,
+    disableFileAccess: true,
+    disableUrlAccess: true,
   };
 
   try {
@@ -43,7 +47,7 @@ async function send(message) {
     logger.error('email:send-failed', {
       to: message.to,
       subject: message.subject,
-      error: error.message,
+      code: 'EMAIL_SEND_FAILED',
     });
 
     throw error;
