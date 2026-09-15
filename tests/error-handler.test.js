@@ -13,6 +13,25 @@ describe('Error handling', () => {
     app = createApp();
   });
 
+  it('preserves operational error details without exposing a stack in non-production', async () => {
+    const AppError = require('../src/errors/AppError');
+    const testApp = express();
+    testApp.get('/quote', (_req, _res, next) => {
+      next(new AppError('Approval required.', 409, 'APPROVAL_REQUIRED', { retryable: false }));
+    });
+    testApp.use(errorHandler);
+
+    const res = await request(testApp).get('/quote');
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({
+      success: false,
+      message: 'Approval required.',
+      error: { code: 'APPROVAL_REQUIRED', details: { retryable: false } },
+    });
+    expect(res.text).not.toContain('error-handler.test.js');
+  });
+
   describe('404 handler', () => {
     it('returns 404 with standard error response for unknown routes', async () => {
       const res = await request(app).get('/api/v1/non-existing-route');
@@ -50,12 +69,16 @@ describe('Error handling', () => {
 
   describe('Fleet image and feature protection', () => {
     it('rejects unauthenticated car image requests', async () => {
-      const res = await request(app).get('/api/v1/fleet/00000000-0000-4000-8000-000000000001/images');
+      const res = await request(app).get(
+        '/api/v1/fleet/00000000-0000-4000-8000-000000000001/images',
+      );
       expect(res.status).toBe(401);
     });
 
     it('rejects unauthenticated car feature requests', async () => {
-      const res = await request(app).get('/api/v1/fleet/00000000-0000-4000-8000-000000000001/features');
+      const res = await request(app).get(
+        '/api/v1/fleet/00000000-0000-4000-8000-000000000001/features',
+      );
       expect(res.status).toBe(401);
     });
   });

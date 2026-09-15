@@ -22,6 +22,7 @@ dotenv.config({
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production', 'staging']).default('development'),
   PORT: z.coerce.number().int().positive().max(65535).default(5000),
+  BYPASS_TAX_APPROVAL_FOR_UAT: z.string().default('false'),
   API_PREFIX: z.string().default('/api/v1'),
 
   // DATABASE_URL is required — the backend connects via Prisma Client.

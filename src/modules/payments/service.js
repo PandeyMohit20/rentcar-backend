@@ -18,6 +18,7 @@ async function activeAttempt(db, bookingId) { const payments = await db.payment.
 async function createOrder({ userId, bookingId }) {
   const candidate = await prisma.booking.findFirst({ where: { id: bookingId, userId } });
   if (!candidate) throw notFound();
+  if (candidate.financialSnapshot?.taxMode === 'UAT_BYPASS' && (!require('../../config/uatTax').isUatTaxBypass() || !require('../../config/env').env.RAZORPAY_KEY_ID.startsWith('rzp_test_'))) throw conflict('UAT payments require enabled UAT mode and Razorpay TEST credentials.');
   const locked = (work) => prisma.$transaction(async (tx) => {
     // Same first-operation car lock as capture reconciliation. No booking lock is
     // acquired before this lock, and no repeatable-read snapshot predates it.

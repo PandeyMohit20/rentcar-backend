@@ -9,6 +9,7 @@ function invoiceData() {
       pickup: '2027-01-10T00:00:00Z',
       return: '2027-01-11T00:00:00Z',
       seller: {
+        gstRegistrationStatus: 'REGISTERED',
         legalName: 'Fixture Seller',
         address: 'Fixture address',
         gstin: '27AAAAA0000A1Z5',
@@ -25,6 +26,7 @@ function invoiceData() {
         rentalSubtotal: 100,
         securityDeposit: 500,
         policy: {
+          gstRegistrationStatus: 'REGISTERED',
           approved: true,
           version: 'test',
           gstRateBps: 1800,

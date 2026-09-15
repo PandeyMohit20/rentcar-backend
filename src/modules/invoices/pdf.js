@@ -6,7 +6,37 @@ const { blocked } = require('../pricing/tax');
 function pdfBlocker(invoice) {
   const s = invoice.snapshot;
   if (!s) return 'INVOICE_HISTORICAL_SNAPSHOT_UNAVAILABLE';
+  if (s.financial?.taxMode === 'UAT_BYPASS') {
+    if (!require('../../config/uatTax').isUatTaxBypass()) return 'UAT_TAX_BYPASS_DISABLED';
+    if (s.seller?.gstin || s.seller?.gstRegistrationStatus || s.seller?.documentTitle !== 'UAT Receipt' || s.financial.tax?.totalTax !== 0 || s.financial.cess?.totalCess !== 0) return 'INVOICE_TAX_STATUS_MISMATCH';
+    return null;
+  }
   if (s.financial?.policyStatus !== 'confirmed') return 'TAX_POLICY_REQUIRES_BUSINESS_CONFIRMATION';
+  if (s.financial.gstRegistrationStatus === 'UNREGISTERED') {
+    if (
+      s.seller?.gstRegistrationStatus !== 'UNREGISTERED' ||
+      s.seller.gstin ||
+      s.financial.tax?.type !== 'NOT_COLLECTED' ||
+      s.financial.tax?.totalTax !== 0
+    )
+      return 'INVOICE_TAX_STATUS_MISMATCH';
+    if (!s.seller.legalName || !s.seller.address || !s.seller.sellerState)
+      return 'SELLER_IDENTITY_REQUIRED';
+    if (
+      !s.seller.documentApproved ||
+      !s.seller.documentApprovalReference ||
+      !s.seller.documentTitle ||
+      /gst|tax\s*invoice/i.test(s.seller.documentTitle)
+    )
+      return 'UNREGISTERED_DOCUMENT_APPROVAL_REQUIRED';
+    return null;
+  }
+  if (
+    s.financial.version >= 2 &&
+    (s.financial.gstRegistrationStatus !== 'REGISTERED' ||
+      s.seller?.gstRegistrationStatus !== 'REGISTERED')
+  )
+    return 'INVOICE_TAX_STATUS_MISMATCH';
   if (!s.seller?.legalName || !s.seller?.address || !s.seller?.gstin || !s.seller?.sac)
     return 'SELLER_GST_PROFILE_REQUIRED';
   return null;
@@ -16,6 +46,8 @@ function renderPdf(invoice, lifecycle = {}) {
   if (blocker) throw blocked(blocker);
   const s = invoice.snapshot,
     f = s.financial;
+  const uat = f.taxMode === 'UAT_BYPASS';
+  const unregistered = uat || f.gstRegistrationStatus === 'UNREGISTERED';
   const doc = new PDFDocument({
     size: 'A4',
     margin: 45,
@@ -49,7 +81,7 @@ function renderPdf(invoice, lifecycle = {}) {
     }).format(new Date(value)) + ' IST';
   doc.font('Helvetica-Bold');
   text('RENTCAR', 25);
-  text('TAX INVOICE', 16);
+  text(unregistered ? s.seller.documentTitle : 'TAX INVOICE', 16);
   doc.font('Helvetica');
   text(`Invoice: ${invoice.invoiceNumber}`);
   text(`Invoice date: ${date(invoice.invoiceDate)}`);
@@ -57,7 +89,8 @@ function renderPdf(invoice, lifecycle = {}) {
   heading('Billed By');
   text(s.seller.legalName);
   text(s.seller.address);
-  text(`GSTIN: ${s.seller.gstin} | SAC: ${s.seller.sac}`);
+  if (!unregistered) text(`GSTIN: ${s.seller.gstin} | SAC: ${s.seller.sac}`);
+  else if (s.seller.sac) text(`Service classification: ${s.seller.sac}`);
   heading('Billed To');
   text(s.customer.name);
   text(s.customer.email);
@@ -69,15 +102,22 @@ function renderPdf(invoice, lifecycle = {}) {
   heading('Charges');
   for (const [label, amount] of [
     ['Rental Charges', f.rentalSubtotal],
-    ['Other Taxable Charges', f.additionalCharges],
-    ['Taxable Value', f.taxableAmount],
-    ...(f.tax.type === 'CGST_SGST'
-      ? [
-          [`CGST (${f.tax.cgstRate}%)`, f.tax.cgst],
-          [`SGST (${f.tax.sgstRate}%)`, f.tax.sgst],
-        ]
-      : [[`IGST (${f.tax.igstRate}%)`, f.tax.igst]]),
-    ['Refundable Security Deposit (separate from taxable value)', f.securityDeposit],
+    [unregistered ? 'Additional Charges' : 'Other Taxable Charges', f.additionalCharges],
+    ...(unregistered ? [] : [['Taxable Value', f.taxableAmount]]),
+    ...(unregistered
+      ? []
+      : f.tax.type === 'CGST_SGST'
+        ? [
+            [`CGST (${f.tax.cgstRate}%)`, f.tax.cgst],
+            [`SGST (${f.tax.sgstRate}%)`, f.tax.sgst],
+          ]
+        : [[`IGST (${f.tax.igstRate}%)`, f.tax.igst]]),
+    [
+      unregistered
+        ? 'Refundable Security Deposit'
+        : 'Refundable Security Deposit (separate from taxable value)',
+      f.securityDeposit,
+    ],
     ['Grand Total', f.grandTotal],
   ]) {
     if (doc.y > 720) doc.addPage();
@@ -100,7 +140,10 @@ function renderPdf(invoice, lifecycle = {}) {
         : 'Booking cancelled. Refer to booking details for the current refund status.',
     );
   if (s.seller.supportEmail) text(`Contact: ${s.seller.supportEmail}`);
-  text(`Place of supply state: ${f.placeOfSupplyState}. Policy version: ${f.policyVersion}.`);
+  if (s.seller.supportPhone) text(`Phone: ${s.seller.supportPhone}`);
+  if (!unregistered)
+    text(`Place of supply state: ${f.placeOfSupplyState}. Policy version: ${f.policyVersion}.`);
+  else text(uat ? 'UAT ONLY - Not a tax invoice. No business tax approval recorded.' : `Policy version: ${f.policyVersion}.`);
   doc.end();
   return result;
 }

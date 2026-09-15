@@ -6,6 +6,7 @@ const { createBooking } = require('../src/modules/bookings/service');
 const { ensureForPaidBooking } = require('../src/modules/invoices/service');
 const { minorUnits } = require('../src/modules/payments/service');
 const policy = {
+  gstRegistrationStatus: 'REGISTERED',
   approved: true,
   version: 'test-only-1',
   gstRateBps: 1800,
@@ -215,6 +216,7 @@ describe('Approved Section 12(2) determination and rate guards', () => {
   });
   it('selects a vehicle override before a category and rejects missing approval or nonzero cess', () => {
     const profile = {
+      gstRegistrationStatus: 'REGISTERED',
       ...policy,
       vehicleRates: [
         { categoryId: 'c', approved: true, gstRateBps: 1200, cessRateBps: 0 },

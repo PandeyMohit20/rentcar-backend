@@ -26,6 +26,7 @@ async function start() {
   try {
     await prisma.$connect();
     logger.info('Database connected');
+    if (require('./config/uatTax').isUatTaxBypass()) logger.warn('WARNING: TAX APPROVAL UAT BYPASS ACTIVE');
   } catch (err) {
     logger.error('Database connection failed', { code: 'DATABASE_CONNECT_FAILED' });
     // Do not exit in test-mock; but in real modes fail fast.

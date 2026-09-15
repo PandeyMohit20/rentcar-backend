@@ -1,6 +1,6 @@
 'use strict';
 
-async function billingSnapshot(db, userId, vendorId, car) {
+async function billingSnapshot(db, userId, vendorId, car, uatBypass = false) {
   const [user, vendor, address] = await Promise.all([
     db.user.findUnique({ where: { id: userId }, select: { name: true, email: true } }),
     db.vendor.findUnique({
@@ -9,14 +9,22 @@ async function billingSnapshot(db, userId, vendorId, car) {
     }),
     db.address.findFirst({ where: { userId, isDefault: true }, orderBy: { createdAt: 'asc' } }),
   ]);
-  const policy = vendor?.taxProfile;
+  if (uatBypass && !require('../../config/uatTax').isUatTaxBypass()) throw require('../pricing/tax').blocked('UAT_TAX_BYPASS_DISABLED');
+  const policy = uatBypass ? null : vendor?.taxProfile;
   return {
     seller: {
       legalName: policy?.legalName || vendor?.legalName || null,
       address: policy?.address || null,
-      gstin: policy?.gstin || vendor?.gstin || null,
+      gstRegistrationStatus: policy?.gstRegistrationStatus || null,
+      gstin: policy?.gstRegistrationStatus === 'UNREGISTERED' ? null : policy?.gstin || null,
+      sellerState: policy?.sellerState || null,
+      state: policy?.state || null,
+      documentTitle: uatBypass ? 'UAT Receipt' : policy?.documentTitle || null,
+      documentApproved: policy?.documentApproved || false,
+      documentApprovalReference: policy?.documentApprovalReference || null,
       sac: policy?.sac || null,
       supportEmail: policy?.supportEmail || null,
+      supportPhone: policy?.supportPhone || null,
     },
     customer: {
       name: user?.name || null,

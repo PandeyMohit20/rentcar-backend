@@ -101,10 +101,8 @@ function errorHandler(err, req, res, next) {
   };
   if (details) response.error.details = details;
 
-  // Never expose stack traces in production.
-  if (!isProduction && err.stack) {
-    response.error.stack = err.stack;
-  }
+  // Stack traces belong in server-side diagnostics, never API responses.
+  // Development APIs are also consumed by browsers and integration clients.
 
   res.status(statusCode).json(response);
 }
