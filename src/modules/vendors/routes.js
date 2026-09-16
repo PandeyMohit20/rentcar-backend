@@ -107,6 +107,30 @@ router.patch(
 );
 
 // ============================================================
+// VENDOR FLEET
+// ============================================================
+
+router.get(
+  '/:vendorId/cars',
+  authenticate,
+  authorize('vendors.view'),
+  validate({ params: idParamSchema }),
+  controller.listCars,
+);
+
+// ============================================================
+// VENDOR BOOKINGS
+// ============================================================
+
+router.get(
+  '/:vendorId/bookings',
+  authenticate,
+  authorize('vendors.view'),
+  validate({ params: idParamSchema }),
+  controller.listBookings,
+);
+
+// ============================================================
 // VENDOR DOCUMENTS
 // ============================================================
 

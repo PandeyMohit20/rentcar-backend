@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const fs = require('fs');
 
@@ -130,50 +130,6 @@ const VendorsController = {
         message:
           'Vendor verification status updated successfully.',
         data: vendor,
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-    // ============================================================
-  // Vendor Fleet
-  // ============================================================
-
-  async listCars(req, res, next) {
-    try {
-      const cars =
-        await vendorService.getVendorCars(
-          req.params.vendorId,
-        );
-
-      return success(res, {
-        message:
-          'Vendor vehicles fetched successfully.',
-        data: cars,
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  // ============================================================
-  // Vendor Bookings
-  // ============================================================
-
-  async listBookings(req, res, next) {
-    try {
-      const result =
-        await vendorService.getVendorBookings(
-          req.params.vendorId,
-          req.query,
-        );
-
-      return success(res, {
-        message:
-          'Vendor bookings fetched successfully.',
-        data: result.data,
-        meta: result.pagination,
       });
     } catch (error) {
       next(error);

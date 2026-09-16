@@ -749,6 +749,290 @@ const VendorsService = {
     };
   },
 
+    // ------------------------------------------------------------
+  // Vendor Fleet
+  // ------------------------------------------------------------
+
+  async getVendorCars(vendorId) {
+    await this._ensureVendorExists(vendorId);
+
+    const cars =
+      await VendorsRepository.findCarsByVendorId(
+        vendorId,
+      );
+
+    return cars.map((car) => ({
+      id: car.id,
+      registrationNumber: car.registrationNumber,
+      brand: car.brand,
+      model: car.model,
+      variant: car.variant,
+      manufacturingYear: car.manufacturingYear,
+      fuelType: car.fuelType,
+      transmission: car.transmission,
+      seatingCapacity: car.seatingCapacity,
+      status: car.status,
+      branchId: car.branchId,
+      primaryImage:
+        car.images?.[0] || null,
+      createdAt: car.createdAt,
+      updatedAt: car.updatedAt,
+    }));
+  },
+
+  // ------------------------------------------------------------
+  // Vendor Bookings
+  // ------------------------------------------------------------
+
+  async getVendorBookings(vendorId, filters = {}) {
+    await this._ensureVendorExists(vendorId);
+
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      paymentStatus,
+      search,
+      from,
+      to,
+    } = filters;
+
+    const pageNumber =
+      Math.max(Number(page) || 1, 1);
+
+    const limitNumber =
+      Math.min(
+        Math.max(Number(limit) || 10, 1),
+        100,
+      );
+
+    const where = {};
+
+    // ----------------------------------------------------------
+    // Booking Status
+    // ----------------------------------------------------------
+
+    if (status) {
+      where.status = status;
+    }
+
+    // ----------------------------------------------------------
+    // Payment Status
+    // ----------------------------------------------------------
+
+    if (paymentStatus) {
+      where.paymentStatus = paymentStatus;
+    }
+
+    // ----------------------------------------------------------
+    // Booking Date Range
+    // ----------------------------------------------------------
+
+    if (from || to) {
+      where.createdAt = {};
+
+      if (from) {
+        where.createdAt.gte =
+          new Date(from);
+      }
+
+      if (to) {
+        const endDate = new Date(to);
+
+        // If only a date was supplied, include the full day.
+        if (
+          typeof to === 'string' &&
+          /^\d{4}-\d{2}-\d{2}$/.test(to)
+        ) {
+          endDate.setUTCHours(
+            23,
+            59,
+            59,
+            999,
+          );
+        }
+
+        where.createdAt.lte =
+          endDate;
+      }
+    }
+
+    // ----------------------------------------------------------
+    // Search
+    // ----------------------------------------------------------
+
+    if (search) {
+      const value =
+        String(search).trim();
+
+      if (value) {
+        where.OR = [
+          {
+            bookingNumber: {
+              contains: value,
+            },
+          },
+          {
+            user: {
+              is: {
+                name: {
+                  contains: value,
+                },
+              },
+            },
+          },
+          {
+            user: {
+              is: {
+                email: {
+                  contains: value,
+                },
+              },
+            },
+          },
+          {
+            user: {
+              is: {
+                phone: {
+                  contains: value,
+                },
+              },
+            },
+          },
+          {
+            car: {
+              is: {
+                registrationNumber: {
+                  contains: value,
+                },
+              },
+            },
+          },
+          {
+            car: {
+              is: {
+                brand: {
+                  contains: value,
+                },
+              },
+            },
+          },
+          {
+            car: {
+              is: {
+                model: {
+                  contains: value,
+                },
+              },
+            },
+          },
+        ];
+      }
+    }
+
+    const skip =
+      (pageNumber - 1) * limitNumber;
+
+    const [bookings, total] =
+      await Promise.all([
+        VendorsRepository.findBookingsByVendorId({
+          vendorId,
+          where,
+          skip,
+          take: limitNumber,
+        }),
+
+        VendorsRepository.countBookingsByVendorId({
+          vendorId,
+          where,
+        }),
+      ]);
+
+    const data = bookings.map(
+      (booking) => {
+        const latestPayment =
+          booking.payments?.[0] || null;
+
+        return {
+          id: booking.id,
+          bookingNumber:
+            booking.bookingNumber,
+
+          customer: booking.user
+            ? {
+                id: booking.user.id,
+                name: booking.user.name,
+                email: booking.user.email,
+                phone: booking.user.phone,
+              }
+            : null,
+
+          vehicle: booking.car
+            ? {
+                id: booking.car.id,
+                registrationNumber:
+                  booking.car
+                    .registrationNumber,
+                brand:
+                  booking.car.brand,
+                model:
+                  booking.car.model,
+                variant:
+                  booking.car.variant,
+                status:
+                  booking.car.status,
+              }
+            : null,
+
+          startAt: booking.startAt,
+          endAt: booking.endAt,
+
+          subtotal: booking.subtotal,
+          tax: booking.tax,
+          discount: booking.discount,
+          securityDeposit:
+            booking.securityDeposit,
+          totalAmount:
+            booking.totalAmount,
+          currencyCode:
+            booking.currencyCode,
+
+          status: booking.status,
+          paymentStatus:
+            booking.paymentStatus,
+
+          holdExpiresAt:
+            booking.holdExpiresAt,
+          cancelledAt:
+            booking.cancelledAt,
+          cancellationReason:
+            booking.cancellationReason,
+
+          latestPayment,
+
+          createdAt:
+            booking.createdAt,
+          updatedAt:
+            booking.updatedAt,
+        };
+      },
+    );
+
+    return {
+      data,
+
+      pagination: {
+        page: pageNumber,
+        limit: limitNumber,
+        total,
+        totalPages:
+          Math.ceil(
+            total / limitNumber,
+          ),
+      },
+    };
+  },
+
   // ------------------------------------------------------------
   // Helpers
   // ------------------------------------------------------------

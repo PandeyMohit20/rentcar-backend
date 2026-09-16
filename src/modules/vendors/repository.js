@@ -235,6 +235,154 @@ const VendorsRepository = {
     });
   },
 
+// ------------------------------------------------------------
+// Vendor Fleet
+// ------------------------------------------------------------
+
+async findCarsByVendorId(vendorId) {
+  return prisma.car.findMany({
+    where: {
+      vendorId,
+      isDeleted: false,
+    },
+    select: {
+      id: true,
+      registrationNumber: true,
+      brand: true,
+      model: true,
+      variant: true,
+      manufacturingYear: true,
+      fuelType: true,
+      transmission: true,
+      seatingCapacity: true,
+      status: true,
+      branchId: true,
+      createdAt: true,
+      updatedAt: true,
+      images: {
+        where: {
+          isPrimary: true,
+        },
+        take: 1,
+        select: {
+          id: true,
+          imageUrl: true,
+          altText: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+},
+
+// ------------------------------------------------------------
+// Vendor Bookings
+// ------------------------------------------------------------
+
+async findBookingsByVendorId({
+  vendorId,
+  where = {},
+  skip = 0,
+  take = 10,
+}) {
+  return prisma.booking.findMany({
+    where: {
+      vendorId,
+      ...where,
+    },
+
+    skip,
+    take,
+
+    orderBy: {
+      createdAt: 'desc',
+    },
+
+    select: {
+      id: true,
+      bookingNumber: true,
+      userId: true,
+      vendorId: true,
+      carId: true,
+
+      startAt: true,
+      endAt: true,
+
+      subtotal: true,
+      tax: true,
+      discount: true,
+      securityDeposit: true,
+      totalAmount: true,
+      currencyCode: true,
+
+      status: true,
+      paymentStatus: true,
+
+      holdExpiresAt: true,
+      cancelledAt: true,
+      cancellationReason: true,
+
+      createdAt: true,
+      updatedAt: true,
+
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+        },
+      },
+
+      car: {
+        select: {
+          id: true,
+          registrationNumber: true,
+          brand: true,
+          model: true,
+          variant: true,
+          status: true,
+        },
+      },
+
+      payments: {
+  select: {
+    id: true,
+    amount: true,
+    currencyCode: true,
+    paymentMethod: true,
+    provider: true,
+    providerOrderId: true,
+    providerPaymentId: true,
+    status: true,
+    operationalStatus: true,
+    transactionReference: true,
+    paidAt: true,
+    failedAt: true,
+    createdAt: true,
+  },
+  orderBy: {
+    createdAt: 'desc',
+  },
+},
+    },
+  });
+},
+
+async countBookingsByVendorId({
+  vendorId,
+  where = {},
+}) {
+  return prisma.booking.count({
+    where: {
+      vendorId,
+      ...where,
+    },
+  });
+},
+
   // ------------------------------------------------------------
   // Vendor Bank Accounts
   // ------------------------------------------------------------

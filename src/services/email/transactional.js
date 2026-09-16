@@ -8,7 +8,7 @@ const titles = {
   booking_created: 'Booking created — payment pending',
   payment_failed: 'Payment attempt failed',
   booking_confirmed: 'Payment successful — booking confirmed',
-  invoice_issued: 'Your RentCar invoice',
+  invoice_issued: 'Your CaronRent booking document',
   booking_cancelled: 'Booking cancelled',
   refund_succeeded: 'Refund processed',
   refund_failed: 'Refund could not be processed',
@@ -30,15 +30,22 @@ function template(eventType, data) {
     `Hello ${data.name},`,
     `Booking: ${data.bookingNumber}`,
     `Vehicle: ${data.vehicle}`,
+    ...(data.branch ? [`Pickup location: ${data.branch}`] : []),
     `Pickup: ${date(data.pickup)}`,
     `Return: ${date(data.return)}`,
+    ...(data.bookingStatus ? [`Booking status: ${data.bookingStatus}`] : []),
+    ...(data.paymentStatus ? [`Payment status: ${data.paymentStatus}`] : []),
   ];
   if (eventType.startsWith('refund_')) lines.push(`Refund amount: ${money(data.refundAmount)}`);
   else lines.push(`Total: ${money(data.total)}`);
   if (data.financial)
     lines.push(
       `Rental: ${money(data.financial.rentalSubtotal)}`,
-      `Tax: ${money(data.financial.tax.totalTax)}`,
+      `Additional charges: ${money(data.financial.additionalCharges)}`,
+      ...(data.financial.taxMode === 'UAT_BYPASS' ||
+      data.financial.gstRegistrationStatus === 'UNREGISTERED'
+        ? []
+        : [`Tax: ${money(data.financial.tax?.totalTax)}`]),
       `Security deposit: ${money(data.financial.securityDeposit)}`,
     );
   const wording = {
@@ -48,7 +55,7 @@ function template(eventType, data) {
       'This payment attempt failed. Check the latest booking status before retrying; never retry an already paid booking.',
     booking_confirmed:
       'Your payment was captured and your booking was confirmed. Check your booking for its current status.',
-    invoice_issued: `Invoice ${data.invoiceNumber} is attached.`,
+    invoice_issued: `${data.documentTitle || 'Booking document'} ${data.invoiceNumber} is attached.`,
     booking_cancelled: data.refundAmount
       ? 'Your booking was cancelled and a refund was initiated. This notice does not confirm that the refund has been processed.'
       : 'Your booking was cancelled. No captured payment was refundable at cancellation.',
@@ -57,11 +64,16 @@ function template(eventType, data) {
       'Your refund could not be processed. Contact support with your booking number. This notice does not confirm a refund.',
   };
   lines.push(wording[eventType]);
+  if (data.paymentReference) lines.push(`Payment reference: ${data.paymentReference}`);
+  if (data.refundReference) lines.push(`Refund reference: ${data.refundReference}`);
+  if (data.refundStatus) lines.push(`Refund status: ${data.refundStatus}`);
+  if (data.supportEmail) lines.push(`Support: ${data.supportEmail}`);
+  if (data.supportPhone) lines.push(`Support phone: ${data.supportPhone}`);
   const subject = `${titles[eventType]} | ${data.bookingNumber}`;
   return {
     subject,
     text: lines.join('\n\n'),
-    html: `<html><body style="font-family:Arial,sans-serif;color:#263244"><div style="max-width:640px;margin:24px auto;padding:24px;border:1px solid #dbe2ea"><h1>RENTCAR</h1><h2>${escape(titles[eventType])}</h2>${lines.map((line) => `<p>${escape(line)}</p>`).join('')}<hr><p>Keep your booking number for future correspondence.</p></div></body></html>`,
+    html: `<html><body style="font-family:Arial,sans-serif;color:#263244"><div style="max-width:640px;margin:24px auto;padding:24px;border:1px solid #dbe2ea"><h1>CaronRent</h1><h2>${escape(titles[eventType])}</h2>${lines.map((line) => `<p>${escape(line)}</p>`).join('')}<hr><p>Keep your booking number for future correspondence.</p></div></body></html>`,
   };
 }
 
@@ -96,12 +108,19 @@ async function enqueue(db, eventType, entityId, booking, data, recipient) {
 async function projectBooking(booking, db = prisma) {
   const [user, car, payments, refunds, invoice, history] = await Promise.all([
     db.user.findUnique({ where: { id: booking.userId }, select: { name: true, email: true } }),
-    db.car.findUnique({ where: { id: booking.carId }, select: { brand: true, model: true } }),
+    db.car.findUnique({
+      where: { id: booking.carId },
+      select: { brand: true, model: true, branchId: true },
+    }),
     db.payment.findMany({ where: { bookingId: booking.id } }),
     db.refund.findMany({ where: { bookingId: booking.id } }),
     db.invoice.findUnique({ where: { bookingId: booking.id } }),
     db.bookingStatusHistory.findMany({ where: { bookingId: booking.id } }),
   ]);
+  const branch = car?.branchId ? await db.branch.findUnique({ where: { id: car.branchId } }) : null;
+  const paidPayment = payments.find(
+    (p) => p.paidAt && ['succeeded', 'refunded'].includes(p.status),
+  );
   const data = {
     name: booking.billingSnapshot?.customer?.name || user?.name || 'Customer',
     bookingNumber: booking.bookingNumber,
@@ -111,6 +130,13 @@ async function projectBooking(booking, db = prisma) {
     total: Number(booking.totalAmount),
     currency: booking.currencyCode,
     financial: booking.financialSnapshot || null,
+    branch: [branch?.name, branch?.address, branch?.city].filter(Boolean).join(', '),
+    bookingStatus: booking.status,
+    paymentStatus: booking.paymentStatus,
+    paymentReference: paidPayment?.providerPaymentId || null,
+    documentTitle: invoice?.snapshot?.seller?.documentTitle || 'Invoice',
+    supportEmail: booking.billingSnapshot?.seller?.supportEmail || null,
+    supportPhone: booking.billingSnapshot?.seller?.supportPhone || null,
   };
   const recipient = booking.billingSnapshot?.customer?.email || user?.email;
   await enqueue(db, 'booking_created', booking.id, booking, data, recipient);
@@ -118,7 +144,7 @@ async function projectBooking(booking, db = prisma) {
     if (payment.failedAt && payment.status === 'failed')
       await enqueue(db, 'payment_failed', payment.id, booking, data, recipient);
   }
-  if (history.some((h) => h.toStatus === 'CONFIRMED') && payments.some((p) => p.paidAt)) {
+  if (history.some((h) => h.toStatus === 'CONFIRMED') && paidPayment) {
     await enqueue(
       db,
       'booking_confirmed',
@@ -153,14 +179,20 @@ async function projectBooking(booking, db = prisma) {
       'booking_cancelled',
       booking.id,
       booking,
-      { ...data, refundAmount: refunds.reduce((sum, r) => sum + Number(r.amount), 0) },
+      {
+        ...data,
+        refundAmount: refunds.reduce((sum, r) => sum + Number(r.amount), 0),
+        refundStatus: refunds[0]?.status || null,
+        refundReference: refunds[0]?.providerReference || null,
+      },
       recipient,
     );
   for (const refund of refunds) {
     const events = await db.refundWebhookEvent.findMany({ where: { refundId: refund.id } });
     const success =
       refund.status === 'succeeded' &&
-      events.some((e) => e.eventType === 'refund.processed' && e.processedAt);
+      (refund.processedAt ||
+        events.some((e) => e.eventType === 'refund.processed' && e.processedAt));
     const failed =
       refund.status === 'failed' &&
       events.some((e) => e.eventType === 'refund.failed' && e.processedAt);
@@ -170,7 +202,12 @@ async function projectBooking(booking, db = prisma) {
         success ? 'refund_succeeded' : 'refund_failed',
         refund.id,
         booking,
-        { ...data, refundAmount: Number(refund.amount) },
+        {
+          ...data,
+          refundAmount: Number(refund.amount),
+          refundStatus: refund.status,
+          refundReference: refund.providerReference,
+        },
         recipient,
       );
   }
@@ -233,7 +270,11 @@ async function deliver(
       attachments = [
         {
           filename: `${invoice.invoiceNumber}.pdf`,
-          content: await renderPdf(invoice),
+          content: await renderPdf(invoice, {
+            bookingStatus: row.payload.bookingStatus,
+            paymentStatus: row.payload.paymentStatus,
+            paymentReference: row.payload.paymentReference,
+          }),
           contentType: 'application/pdf',
         },
       ];
@@ -303,11 +344,19 @@ async function tick({
   }
   // SMTP acceptance followed by process death is ambiguous. Never auto-resend.
   await db.emailDelivery.updateMany({
-    where: { status: 'sending', claimedAt: { lte: new Date(Date.now() - 300000) } },
+    where: {
+      createdAt: { gte: new Date(since) },
+      status: 'sending',
+      claimedAt: { lte: new Date(Date.now() - 300000) },
+    },
     data: { status: 'unknown', lastErrorCode: 'WORKER_INTERRUPTED' },
   });
   const rows = await db.emailDelivery.findMany({
-    where: { status: { in: ['pending', 'failed', 'blocked'] }, nextAttemptAt: { lte: new Date() } },
+    where: {
+      createdAt: { gte: new Date(since) },
+      status: { in: ['pending', 'failed', 'blocked'] },
+      nextAttemptAt: { lte: new Date() },
+    },
     orderBy: { createdAt: 'asc' },
     take: 100,
   });
