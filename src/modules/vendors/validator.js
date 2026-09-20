@@ -160,6 +160,30 @@ const updateDocumentSchema = z.object({
   remarks: z.string().trim().max(500).optional().nullable(),
 });
 
+const listSettlementsSchema = z.object({
+  page: z.coerce
+    .number()
+    .int()
+    .positive()
+    .optional(),
+
+  pageSize: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(100)
+    .optional(),
+
+  status: z
+    .enum([
+      'pending',
+      'processing',
+      'paid',
+      'failed',
+      'reversed',
+    ])
+    .optional(),
+});
 const bankAccountSchema = z.object({
   accountHolder: z.string().trim().min(2).max(255),
   bankName: z.string().trim().min(2).max(255),
@@ -183,6 +207,7 @@ module.exports = {
   documentMetadataSchema,
   updateDocumentSchema,
   bankAccountSchema,
+  listSettlementsSchema,
   VENDOR_STATUS,
   VENDOR_VERIFICATION_STATUS,
 };

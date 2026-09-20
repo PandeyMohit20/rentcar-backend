@@ -3,7 +3,6 @@
 const httpStatus = require('../constants/httpStatus');
 const errorCodes = require('./errorCodes');
 const { logger } = require('../config/logger');
-const { isProduction } = require('../config/env');
 
 /**
  * Maps known Prisma error codes to safe HTTP responses.
@@ -67,6 +66,7 @@ function errorHandler(err, req, res, next) {
       statusCode = mapped.statusCode;
       code = mapped.code;
       message = mapped.message;
+      details = undefined;
     } else {
       statusCode = httpStatus.INTERNAL_SERVER_ERROR;
       code = errorCodes.DATABASE_ERROR;
@@ -88,8 +88,15 @@ function errorHandler(err, req, res, next) {
       requestId: req.requestId,
       code,
       statusCode,
-      stack: isProduction ? undefined : err.stack,
+      stack: err.stack,
     });
+  }
+
+  // Server failures must be customer-safe in every environment, including UAT.
+  if (statusCode >= 500) {
+    message = 'The service is temporarily unavailable. Please try again shortly.';
+    code = errorCodes.INTERNAL_ERROR;
+    details = undefined;
   }
 
   const response = {

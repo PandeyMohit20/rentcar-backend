@@ -1,5 +1,5 @@
 // ============================================================
-// RentCar SaaS — Prisma Schema (Single Source of Truth)
+// RentCar SaaS â€” Prisma Schema (Single Source of Truth)
 // ------------------------------------------------------------
 // Provider   : MySQL 8+
 // ORM        : Prisma ORM / Prisma Client
@@ -262,7 +262,7 @@ enum IpSourceEnum {
 }
 
 // ============================================================
-// CORE IDENTITY — USERS, ROLES, PERMISSIONS, AUTH
+// CORE IDENTITY â€” USERS, ROLES, PERMISSIONS, AUTH
 // ============================================================
 
 model User {
@@ -506,7 +506,9 @@ model Vendor {
   invoices     Invoice[]
   locations    Location[]
   members      VendorMember[]
-  verifier     User?               @relation("VendorVerifiedBy", fields: [verifiedBy], references: [id], onDelete: SetNull)
+
+  settlements VendorSettlement[]
+  verifier    User?              @relation("VendorVerifiedBy", fields: [verifiedBy], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([verificationStatus])
@@ -552,14 +554,15 @@ model VendorBankAccount {
   createdAt     DateTime   @default(now()) @map("created_at")
   updatedAt     DateTime   @updatedAt @map("updated_at")
 
-  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor      Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  settlements VendorSettlement[]
 
   @@index([vendorId])
   @@map("vendor_bank_accounts")
 }
 
 // ============================================================
-// GEOGRAPHY — CITIES, LOCATIONS, BRANCHES
+// GEOGRAPHY â€” CITIES, LOCATIONS, BRANCHES
 // ============================================================
 
 model City {
@@ -636,7 +639,7 @@ model Branch {
 }
 
 // ============================================================
-// FLEET — CARS & RELATED
+// FLEET â€” CARS & RELATED
 // ============================================================
 
 model Car {
@@ -861,33 +864,34 @@ model GpsDevice {
 // ============================================================
 
 model Booking {
-  financialSnapshot  Json?             @map("financial_snapshot")
-  billingSnapshot    Json?             @map("billing_snapshot")
-  id                 String            @id @default(uuid()) @db.VarChar(36)
-  bookingNumber      String            @unique @map("booking_number") @db.VarChar(50)
-  userId             String            @map("user_id") @db.VarChar(36) // customer
-  vendorId           String            @map("vendor_id") @db.VarChar(36)
-  carId              String            @map("car_id") @db.VarChar(36)
-  pickupLocationId   String?           @map("pickup_location_id") @db.VarChar(36)
-  dropoffLocationId  String?           @map("dropoff_location_id") @db.VarChar(36)
-  startAt            DateTime          @map("start_at")
-  endAt              DateTime          @map("end_at")
-  subtotal           Decimal           @db.Decimal(12, 2)
-  tax                Decimal?          @default(0) @db.Decimal(12, 2)
-  discount           Decimal?          @default(0) @db.Decimal(12, 2)
-  securityDeposit    Decimal?          @default(0) @map("security_deposit") @db.Decimal(12, 2)
-  totalAmount        Decimal           @map("total_amount") @db.Decimal(12, 2)
-  currencyCode       String            @default("INR") @map("currency_code") @db.VarChar(3)
-  status             BookingStatusEnum @default(PENDING)
-  paymentStatus      PaymentStatusEnum @default(pending) @map("payment_status")
-  vendorCommision    Decimal?          @default(0) @map("vendor_commision") @db.Decimal(12, 2)
-  holdExpiresAt      DateTime?         @map("hold_expires_at")
-  cancelledAt        DateTime?         @map("cancelled_at")
-  cancellationReason String?           @map("cancellation_reason") @db.VarChar(500)
-  idempotencyKey     String?           @map("idempotency_key") @db.VarChar(255)
-  idempotencyHash    String?           @map("idempotency_hash") @db.VarChar(64)
-  createdAt          DateTime          @default(now()) @map("created_at")
-  updatedAt          DateTime          @updatedAt @map("updated_at")
+  financialSnapshot    Json?             @map("financial_snapshot")
+  billingSnapshot      Json?             @map("billing_snapshot")
+  id                   String            @id @default(uuid()) @db.VarChar(36)
+  bookingNumber        String            @unique @map("booking_number") @db.VarChar(50)
+  userId               String            @map("user_id") @db.VarChar(36) // customer
+  vendorId             String            @map("vendor_id") @db.VarChar(36)
+  carId                String            @map("car_id") @db.VarChar(36)
+  pickupLocationId     String?           @map("pickup_location_id") @db.VarChar(36)
+  dropoffLocationId    String?           @map("dropoff_location_id") @db.VarChar(36)
+  startAt              DateTime          @map("start_at")
+  endAt                DateTime          @map("end_at")
+  subtotal             Decimal           @db.Decimal(12, 2)
+  tax                  Decimal?          @default(0) @db.Decimal(12, 2)
+  discount             Decimal?          @default(0) @db.Decimal(12, 2)
+  securityDeposit      Decimal?          @default(0) @map("security_deposit") @db.Decimal(12, 2)
+  totalAmount          Decimal           @map("total_amount") @db.Decimal(12, 2)
+  currencyCode         String            @default("INR") @map("currency_code") @db.VarChar(3)
+  status               BookingStatusEnum @default(PENDING)
+  paymentStatus        PaymentStatusEnum @default(pending) @map("payment_status")
+  vendorCommissionRate Decimal?          @map("vendor_commission_rate") @db.Decimal(5, 2)
+  vendorCommision      Decimal?          @default(0) @map("vendor_commision") @db.Decimal(12, 2)
+  holdExpiresAt        DateTime?         @map("hold_expires_at")
+  cancelledAt          DateTime?         @map("cancelled_at")
+  cancellationReason   String?           @map("cancellation_reason") @db.VarChar(500)
+  idempotencyKey       String?           @map("idempotency_key") @db.VarChar(255)
+  idempotencyHash      String?           @map("idempotency_hash") @db.VarChar(64)
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
 
   user          User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
   vendor        Vendor                 @relation("VendorBookings", fields: [vendorId], references: [id], onDelete: Restrict)
@@ -901,6 +905,8 @@ model Booking {
   couponUsages  CouponUsage[]
   reviews       Review[]
   statusHistory BookingStatusHistory[]
+
+  settlementItems VendorSettlementItem[]
 
   @@unique([userId, idempotencyKey])
   @@index([userId])
@@ -1081,7 +1087,7 @@ model TripDamage {
 }
 
 // ============================================================
-// FINANCIALS — PAYMENTS, REFUNDS, WALLETS, COUPONS, INVOICES
+// FINANCIALS â€” PAYMENTS, REFUNDS, WALLETS, COUPONS, INVOICES
 // ============================================================
 
 model Payment {
@@ -1107,6 +1113,8 @@ model Payment {
   user          User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
   refunds       Refund[]
   webhookEvents PaymentWebhookEvent[]
+
+  settlementItems VendorSettlementItem[]
 
   @@index([bookingId])
   @@index([userId])
@@ -1177,6 +1185,79 @@ model RefundWebhookEvent {
   @@index([refundId])
   @@index([createdAt])
   @@map("refund_webhook_events")
+}
+
+enum VendorSettlementStatusEnum {
+  pending
+  processing
+  paid
+  failed
+  reversed
+}
+
+model VendorSettlement {
+  id               String  @id @default(uuid()) @db.VarChar(36)
+  settlementNumber String  @unique @map("settlement_number") @db.VarChar(50)
+  vendorId         String  @map("vendor_id") @db.VarChar(36)
+  bankAccountId    String? @map("bank_account_id") @db.VarChar(36)
+
+  periodStart DateTime @map("period_start")
+  periodEnd   DateTime @map("period_end")
+
+  grossCollected   Decimal @default(0) @map("gross_collected") @db.Decimal(14, 2)
+  refundAmount     Decimal @default(0) @map("refund_amount") @db.Decimal(14, 2)
+  commissionAmount Decimal @default(0) @map("commission_amount") @db.Decimal(14, 2)
+  securityDeposit  Decimal @default(0) @map("security_deposit") @db.Decimal(14, 2)
+  adjustmentAmount Decimal @default(0) @map("adjustment_amount") @db.Decimal(14, 2)
+  netPayable       Decimal @default(0) @map("net_payable") @db.Decimal(14, 2)
+
+  currencyCode String                     @default("INR") @map("currency_code") @db.VarChar(3)
+  status       VendorSettlementStatusEnum @default(pending)
+
+  payoutReference String?   @unique @map("payout_reference") @db.VarChar(150)
+  processedAt     DateTime? @map("processed_at")
+  failedAt        DateTime? @map("failed_at")
+  failureReason   String?   @map("failure_reason") @db.VarChar(500)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  vendor      Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  bankAccount VendorBankAccount?     @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  items       VendorSettlementItem[]
+
+  @@index([vendorId])
+  @@index([vendorId, status])
+  @@index([periodStart, periodEnd])
+  @@index([bankAccountId])
+  @@index([createdAt])
+  @@map("vendor_settlements")
+}
+
+model VendorSettlementItem {
+  id           String @id @default(uuid()) @db.VarChar(36)
+  settlementId String @map("settlement_id") @db.VarChar(36)
+  bookingId    String @map("booking_id") @db.VarChar(36)
+  paymentId    String @map("payment_id") @db.VarChar(36)
+
+  grossAmount      Decimal @default(0) @map("gross_amount") @db.Decimal(14, 2)
+  refundAmount     Decimal @default(0) @map("refund_amount") @db.Decimal(14, 2)
+  commissionAmount Decimal @default(0) @map("commission_amount") @db.Decimal(14, 2)
+  securityDeposit  Decimal @default(0) @map("security_deposit") @db.Decimal(14, 2)
+  netAmount        Decimal @default(0) @map("net_amount") @db.Decimal(14, 2)
+
+  currencyCode String   @default("INR") @map("currency_code") @db.VarChar(3)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  settlement VendorSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  booking    Booking          @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  payment    Payment          @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@unique([bookingId, paymentId])
+  @@index([settlementId])
+  @@index([bookingId])
+  @@index([paymentId])
+  @@map("vendor_settlement_items")
 }
 
 model Wallet {
@@ -1337,21 +1418,21 @@ model RatingSummary {
 // ============================================================
 
 model EmailDelivery {
-  id                String   @id @default(uuid()) @db.VarChar(36)
-  dedupeKey         String   @unique @map("dedupe_key") @db.VarChar(64)
-  bookingId         String   @map("booking_id") @db.VarChar(36)
-  eventType         String   @map("event_type") @db.VarChar(100)
-  recipient         String   @db.VarChar(255)
+  id                String    @id @default(uuid()) @db.VarChar(36)
+  dedupeKey         String    @unique @map("dedupe_key") @db.VarChar(64)
+  bookingId         String    @map("booking_id") @db.VarChar(36)
+  eventType         String    @map("event_type") @db.VarChar(100)
+  recipient         String    @db.VarChar(255)
   payload           Json
-  status            String   @default("pending") @db.VarChar(30)
-  attempts          Int      @default(0)
-  nextAttemptAt     DateTime @default(now()) @map("next_attempt_at")
+  status            String    @default("pending") @db.VarChar(30)
+  attempts          Int       @default(0)
+  nextAttemptAt     DateTime  @default(now()) @map("next_attempt_at")
   claimedAt         DateTime? @map("claimed_at")
   acceptedAt        DateTime? @map("accepted_at")
-  providerMessageId String?  @map("provider_message_id") @db.VarChar(255)
-  lastErrorCode     String?  @map("last_error_code") @db.VarChar(100)
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  providerMessageId String?   @map("provider_message_id") @db.VarChar(255)
+  lastErrorCode     String?   @map("last_error_code") @db.VarChar(100)
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
   @@index([bookingId])
   @@index([status, nextAttemptAt])
@@ -1422,7 +1503,7 @@ model SupportMessage {
 }
 
 // ============================================================
-// SYSTEM — SETTINGS, LOGS, REPORTS, ANALYTICS
+// SYSTEM â€” SETTINGS, LOGS, REPORTS, ANALYTICS
 // ============================================================
 
 model Setting {

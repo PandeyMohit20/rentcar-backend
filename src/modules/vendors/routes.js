@@ -24,6 +24,7 @@ const {
   documentMetadataSchema,
   updateDocumentSchema,
   bankAccountSchema,
+  listSettlementsSchema,
 } = require('./validator');
 
 const router = Router();
@@ -62,6 +63,76 @@ router.post(
   controller.create,
 );
 
+// ------------------------------------------------------------
+// Vendor Staff
+// ------------------------------------------------------------
+
+router.get(
+  '/:vendorId/staff',
+  authenticate,
+  authorize('vendors.view'),
+  validate({
+    params: idParamSchema,
+  }),
+  controller.listStaff,
+);
+
+// ------------------------------------------------------------
+// Vendor Revenue
+// ------------------------------------------------------------
+
+router.get(
+  '/:vendorId/revenue',
+  authenticate,
+  authorize('vendors.view'),
+  validate({
+    params: idParamSchema,
+  }),
+  controller.getRevenue,
+);
+
+// ------------------------------------------------------------
+// Vendor Activity
+// ------------------------------------------------------------
+
+router.get(
+  '/:vendorId/activity',
+  authenticate,
+  authorize('vendors.view'),
+  validate({
+    params: idParamSchema,
+  }),
+  controller.listActivity,
+);
+
+// ------------------------------------------------------------
+// Vendor Sessions
+// ------------------------------------------------------------
+
+router.get(
+  '/:vendorId/sessions',
+  authenticate,
+  authorize('vendors.view'),
+  validate({
+    params: idParamSchema,
+  }),
+  controller.listSessions,
+);
+
+// ------------------------------------------------------------
+// Vendor Settlements
+// ------------------------------------------------------------
+
+router.get(
+  '/:vendorId/settlements',
+  authenticate,
+  authorize('vendors.view'),
+  validate({
+    params: idParamSchema,
+    query: listSettlementsSchema,
+  }),
+  controller.listSettlements,
+);
 router.get(
   '/:vendorId',
   authenticate,

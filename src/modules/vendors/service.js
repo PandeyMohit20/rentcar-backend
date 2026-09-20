@@ -1087,6 +1087,514 @@ const VendorsService = {
         vendor.locations || undefined,
     };
   },
+
+// ------------------------------------------------------------
+// Vendor Staff
+// ------------------------------------------------------------
+
+// ------------------------------------------------------------
+// Vendor Settlements
+// ------------------------------------------------------------
+
+async getVendorSettlements(vendorId, filters = {}) {
+  await this._ensureVendorExists(vendorId);
+
+  const {
+    page = 1,
+    pageSize = 20,
+    status,
+  } = filters;
+
+  const pageNumber =
+    Math.max(Number(page) || 1, 1);
+
+  const pageSizeNumber =
+    Math.min(
+      Math.max(Number(pageSize) || 20, 1),
+      100,
+    );
+
+  const where = {};
+
+  if (status) {
+    where.status = status;
+  }
+
+  const skip =
+    (pageNumber - 1) * pageSizeNumber;
+
+  const [settlements, total] =
+    await Promise.all([
+      VendorsRepository.findSettlementsByVendorId({
+        vendorId,
+        where,
+        skip,
+        take: pageSizeNumber,
+      }),
+
+      VendorsRepository.countSettlementsByVendorId({
+        vendorId,
+        where,
+      }),
+    ]);
+
+  return {
+    data: settlements.map((settlement) => ({
+      id: settlement.id,
+      settlementNumber: settlement.settlementNumber,
+      vendorId: settlement.vendorId,
+      bankAccountId: settlement.bankAccountId,
+
+      periodStart: settlement.periodStart,
+      periodEnd: settlement.periodEnd,
+
+      grossCollected:
+        Number(settlement.grossCollected || 0),
+
+      refundAmount:
+        Number(settlement.refundAmount || 0),
+
+      commissionAmount:
+        Number(settlement.commissionAmount || 0),
+
+      securityDeposit:
+        Number(settlement.securityDeposit || 0),
+
+      adjustmentAmount:
+        Number(settlement.adjustmentAmount || 0),
+
+      netPayable:
+        Number(settlement.netPayable || 0),
+
+      currencyCode: settlement.currencyCode,
+      status: settlement.status,
+
+      payoutReference: settlement.payoutReference,
+      processedAt: settlement.processedAt,
+      failedAt: settlement.failedAt,
+      failureReason: settlement.failureReason,
+
+      bankAccount: settlement.bankAccount
+        ? {
+            id: settlement.bankAccount.id,
+            accountHolder:
+              settlement.bankAccount.accountHolder,
+            bankName:
+              settlement.bankAccount.bankName,
+
+            // Only last 4 digits are exposed here.
+            accountNumberLast4:
+              settlement.bankAccount.accountNumber
+                ? String(
+                    settlement.bankAccount.accountNumber,
+                  ).slice(-4)
+                : null,
+
+            ifscCode:
+              settlement.bankAccount.ifscCode,
+            swiftCode:
+              settlement.bankAccount.swiftCode,
+            currencyCode:
+              settlement.bankAccount.currencyCode,
+            isDefault:
+              settlement.bankAccount.isDefault,
+            status:
+              settlement.bankAccount.status,
+          }
+        : null,
+
+      items: (settlement.items || []).map((item) => ({
+        id: item.id,
+        bookingId: item.bookingId,
+        paymentId: item.paymentId,
+
+        grossAmount:
+          Number(item.grossAmount || 0),
+
+        refundAmount:
+          Number(item.refundAmount || 0),
+
+        commissionAmount:
+          Number(item.commissionAmount || 0),
+
+        securityDeposit:
+          Number(item.securityDeposit || 0),
+
+        netAmount:
+          Number(item.netAmount || 0),
+
+        currencyCode: item.currencyCode,
+        createdAt: item.createdAt,
+
+        booking: item.booking
+          ? {
+              id: item.booking.id,
+              bookingNumber:
+                item.booking.bookingNumber,
+              status:
+                item.booking.status,
+              paymentStatus:
+                item.booking.paymentStatus,
+
+              subtotal:
+                Number(item.booking.subtotal || 0),
+
+              tax:
+                Number(item.booking.tax || 0),
+
+              discount:
+                Number(item.booking.discount || 0),
+
+              securityDeposit:
+                Number(
+                  item.booking.securityDeposit || 0,
+                ),
+
+              totalAmount:
+                Number(
+                  item.booking.totalAmount || 0,
+                ),
+
+              vendorCommissionRate:
+                item.booking.vendorCommissionRate ==
+                null
+                  ? null
+                  : Number(
+                      item.booking.vendorCommissionRate,
+                    ),
+
+              vendorCommision:
+                Number(
+                  item.booking.vendorCommision || 0,
+                ),
+            }
+          : null,
+      })),
+
+      createdAt: settlement.createdAt,
+      updatedAt: settlement.updatedAt,
+    })),
+
+    pagination: {
+      page: pageNumber,
+      pageSize: pageSizeNumber,
+      total,
+      totalPages:
+        total === 0
+          ? 0
+          : Math.ceil(total / pageSizeNumber),
+    },
+  };
+},
+async getVendorStaff(vendorId) {
+  await this._ensureVendorExists(vendorId);
+
+  const members =
+    await VendorsRepository.findMembersByVendorId(vendorId);
+
+  return members.map((member) => ({
+    id: member.id,
+    vendorId: member.vendorId,
+    userId: member.userId,
+    isOwner: member.isOwner,
+
+    name: member.user?.name || null,
+    email: member.user?.email || null,
+    phone: member.user?.phone || null,
+    status: member.user?.status || null,
+
+    roles:
+      member.user?.roles?.map(
+        (item) => item.role?.name,
+      ).filter(Boolean) || [],
+
+    joinedAt: member.createdAt,
+    updatedAt: member.updatedAt,
+  }));
+},
+
+// ------------------------------------------------------------
+// Vendor Revenue
+// ------------------------------------------------------------
+
+async getVendorRevenue(vendorId) {
+  await this._ensureVendorExists(vendorId);
+
+  const bookings =
+    await VendorsRepository.findRevenueBookingsByVendorId(
+      vendorId,
+    );
+
+  let grossCollected = 0;
+  let refundedAmount = 0;
+  let platformCommission = 0;
+  let securityDeposit = 0;
+
+  let paidBookings = 0;
+  let refundedBookings = 0;
+
+  const transactions = [];
+
+  for (const booking of bookings) {
+    let bookingCollected = 0;
+    let bookingRefunded = 0;
+
+    for (const payment of booking.payments || []) {
+      const paymentAmount = Number(payment.amount || 0);
+
+      if (
+        payment.status === 'succeeded' ||
+        payment.status === 'refunded'
+      ) {
+        bookingCollected += paymentAmount;
+      }
+
+      for (const refund of payment.refunds || []) {
+        if (refund.status === 'succeeded') {
+          bookingRefunded += Number(refund.amount || 0);
+        }
+      }
+    }
+
+    if (bookingCollected > 0) {
+      paidBookings += 1;
+    }
+
+    if (bookingRefunded > 0) {
+      refundedBookings += 1;
+    }
+
+    grossCollected += bookingCollected;
+    refundedAmount += bookingRefunded;
+
+    /*
+     * Security deposit is intentionally reported separately.
+     * It is not automatically treated as earned revenue.
+     */
+    if (bookingCollected > 0) {
+      securityDeposit += Number(
+        booking.securityDeposit || 0,
+      );
+    }
+
+    /*
+     * Existing booking snapshot is authoritative when present.
+     * Do not recompute historical commission from the vendor's
+     * current commission rate.
+     */
+    platformCommission += Number(
+      booking.vendorCommision || 0,
+    );
+
+    if (
+      bookingCollected > 0 ||
+      bookingRefunded > 0
+    ) {
+      transactions.push({
+        bookingId: booking.id,
+        bookingNumber: booking.bookingNumber,
+        bookingStatus: booking.status,
+        paymentStatus: booking.paymentStatus,
+
+        totalAmount: Number(
+          booking.totalAmount || 0,
+        ),
+
+        collectedAmount: bookingCollected,
+        refundedAmount: bookingRefunded,
+
+        netCollected:
+          bookingCollected - bookingRefunded,
+
+        securityDeposit: Number(
+          booking.securityDeposit || 0,
+        ),
+
+        platformCommission: Number(
+          booking.vendorCommision || 0,
+        ),
+
+        currencyCode:
+          booking.currencyCode || 'INR',
+
+        startAt: booking.startAt,
+        endAt: booking.endAt,
+        createdAt: booking.createdAt,
+      });
+    }
+  }
+
+  const netCollected =
+    grossCollected - refundedAmount;
+
+  /*
+   * This is an indicative vendor earnings figure based on
+   * the existing booking commission snapshot.
+   *
+   * It is NOT a settlement/payout balance.
+   */
+  const vendorEarnings =
+    netCollected -
+    platformCommission -
+    securityDeposit;
+
+  return {
+    summary: {
+      totalBookings: bookings.length,
+      paidBookings,
+      refundedBookings,
+
+      grossCollected,
+      refundedAmount,
+      netCollected,
+
+      securityDeposit,
+      platformCommission,
+      vendorEarnings,
+
+      currencyCode: 'INR',
+    },
+
+    transactions,
+  };
+},
+
+// ------------------------------------------------------------
+// Vendor Activity
+// ------------------------------------------------------------
+
+async getVendorActivity(vendorId) {
+  await this._ensureVendorExists(vendorId);
+
+  const result =
+    await VendorsRepository.findActivityLogsByVendorId(
+      vendorId,
+    );
+
+  const activityLogs = (
+    result.activityLogs || []
+  ).map((row) => ({
+    id: row.id,
+    source: 'activity',
+    userId: row.userId,
+
+    user: row.user
+      ? {
+          id: row.user.id,
+          name: row.user.name,
+          email: row.user.email,
+        }
+      : null,
+
+    action: row.action,
+    module: row.module,
+    entity: row.entity,
+    entityId: row.entityId,
+
+    metadata: row.metadata,
+    result: null,
+    requestId: null,
+
+    ipAddress: row.ipAddress,
+    userAgent: row.userAgent,
+    createdAt: row.createdAt,
+  }));
+
+  const auditLogs = (
+    result.auditLogs || []
+  ).map((row) => ({
+    id: row.id,
+    source: 'audit',
+    userId: row.userId,
+
+    user: row.user
+      ? {
+          id: row.user.id,
+          name: row.user.name,
+          email: row.user.email,
+        }
+      : null,
+
+    action: row.action,
+    module: row.module,
+    entity: row.entity,
+    entityId: row.entityId,
+
+    metadata: row.metadata,
+    result: row.result,
+    requestId: row.requestId,
+
+    ipAddress: row.ipAddress,
+    userAgent: row.userAgent,
+    createdAt: row.createdAt,
+  }));
+
+  return [...activityLogs, ...auditLogs]
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() -
+        new Date(a.createdAt).getTime(),
+    )
+    .slice(0, 100);
+},
+
+// ------------------------------------------------------------
+// Vendor Sessions
+// ------------------------------------------------------------
+
+async getVendorSessions(vendorId) {
+  await this._ensureVendorExists(vendorId);
+
+  const sessions =
+    await VendorsRepository.findSessionsByVendorId(
+      vendorId,
+    );
+
+  const now = Date.now();
+
+  return sessions.map((session) => {
+    const revoked = Boolean(
+      session.revokedAt,
+    );
+
+    const expired =
+      new Date(
+        session.expiresAt,
+      ).getTime() <= now;
+
+    return {
+      id: session.id,
+      userId: session.userId,
+
+      user: session.user
+        ? {
+            id: session.user.id,
+            name: session.user.name,
+            email: session.user.email,
+            phone: session.user.phone,
+            status: session.user.status,
+          }
+        : null,
+
+      status: revoked
+        ? 'revoked'
+        : expired
+          ? 'expired'
+          : 'active',
+
+      ipAddress: session.ipAddress,
+      userAgent: session.userAgent,
+      deviceSource:
+        session.deviceSource,
+
+      createdAt: session.createdAt,
+      lastActiveAt:
+        session.lastActiveAt,
+      expiresAt: session.expiresAt,
+      revokedAt: session.revokedAt,
+    };
+  });
+},
 };
 
 VendorsService.toVendorDocumentResponse = toVendorDocumentResponse;

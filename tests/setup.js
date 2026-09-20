@@ -7,6 +7,10 @@
  */
 
 process.env.NODE_ENV = 'test';
+
+// Tests must fail closed by default.
+// Individual UAT-bypass tests explicitly opt in when required.
+process.env.BYPASS_TAX_APPROVAL_FOR_UAT = 'false';
 process.env.PORT = '5100';
 process.env.API_PREFIX = '/api/v1';
 process.env.DATABASE_URL =

@@ -289,9 +289,9 @@ async findBookingsByVendorId({
 }) {
   return prisma.booking.findMany({
     where: {
-      vendorId,
-      ...where,
-    },
+  ...where,
+  vendorId,
+},
 
     skip,
     take,
@@ -377,12 +377,433 @@ async countBookingsByVendorId({
 }) {
   return prisma.booking.count({
     where: {
-      vendorId,
+  ...where,
+  vendorId,
+},
+  });
+},
+
+// ------------------------------------------------------------
+// Vendor Staff / Members
+// ------------------------------------------------------------
+
+// ------------------------------------------------------------
+// Vendor Settlements
+// ------------------------------------------------------------
+
+async findSettlementsByVendorId({
+  vendorId,
+  where = {},
+  skip = 0,
+  take = 20,
+}) {
+  return prisma.vendorSettlement.findMany({
+    where: {
       ...where,
+      vendorId,
+    },
+
+    skip,
+    take,
+
+    orderBy: {
+      createdAt: 'desc',
+    },
+
+    select: {
+      id: true,
+      settlementNumber: true,
+      vendorId: true,
+      bankAccountId: true,
+
+      periodStart: true,
+      periodEnd: true,
+
+      grossCollected: true,
+      refundAmount: true,
+      commissionAmount: true,
+      securityDeposit: true,
+      adjustmentAmount: true,
+      netPayable: true,
+
+      currencyCode: true,
+      status: true,
+
+      payoutReference: true,
+      processedAt: true,
+      failedAt: true,
+      failureReason: true,
+
+      createdAt: true,
+      updatedAt: true,
+
+      bankAccount: {
+        select: {
+          id: true,
+          accountHolder: true,
+          bankName: true,
+          accountNumber: true,
+          ifscCode: true,
+          swiftCode: true,
+          currencyCode: true,
+          isDefault: true,
+          status: true,
+        },
+      },
+
+      items: {
+        orderBy: {
+          createdAt: 'asc',
+        },
+
+        select: {
+          id: true,
+          bookingId: true,
+          paymentId: true,
+
+          grossAmount: true,
+          refundAmount: true,
+          commissionAmount: true,
+          securityDeposit: true,
+          netAmount: true,
+          currencyCode: true,
+          createdAt: true,
+
+          booking: {
+            select: {
+              id: true,
+              bookingNumber: true,
+              status: true,
+              paymentStatus: true,
+
+              subtotal: true,
+              tax: true,
+              discount: true,
+              securityDeposit: true,
+              totalAmount: true,
+
+              vendorCommissionRate: true,
+              vendorCommision: true,
+            },
+          },
+        },
+      },
     },
   });
 },
 
+async countSettlementsByVendorId({
+  vendorId,
+  where = {},
+}) {
+  return prisma.vendorSettlement.count({
+    where: {
+      ...where,
+      vendorId,
+    },
+  });
+},
+async findMembersByVendorId(vendorId) {
+  return prisma.vendorMember.findMany({
+    where: {
+      vendorId,
+    },
+    select: {
+      id: true,
+      vendorId: true,
+      userId: true,
+      isOwner: true,
+      createdAt: true,
+      updatedAt: true,
+
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+
+          roles: {
+            select: {
+              role: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    orderBy: [
+      {
+        isOwner: 'desc',
+      },
+      {
+        createdAt: 'asc',
+      },
+    ],
+  });
+},
+
+// ------------------------------------------------------------
+// Vendor Revenue
+// ------------------------------------------------------------
+
+async findRevenueBookingsByVendorId(vendorId) {
+  return prisma.booking.findMany({
+    where: {
+      vendorId,
+    },
+
+    select: {
+      id: true,
+      bookingNumber: true,
+      status: true,
+      paymentStatus: true,
+
+      subtotal: true,
+      tax: true,
+      discount: true,
+      securityDeposit: true,
+      totalAmount: true,
+      vendorCommision: true,
+      currencyCode: true,
+
+      startAt: true,
+      endAt: true,
+      createdAt: true,
+
+      payments: {
+        where: {
+          status: {
+            in: ['succeeded', 'refunded'],
+          },
+        },
+
+        select: {
+          id: true,
+          amount: true,
+          status: true,
+          currencyCode: true,
+          paidAt: true,
+          createdAt: true,
+
+          refunds: {
+            select: {
+              id: true,
+              amount: true,
+              status: true,
+              processedAt: true,
+              createdAt: true,
+            },
+          },
+        },
+      },
+    },
+
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+},
+
+// ------------------------------------------------------------
+// Vendor Sessions
+// ------------------------------------------------------------
+
+async findSessionsByVendorId(vendorId) {
+  const members = await prisma.vendorMember.findMany({
+    where: {
+      vendorId,
+    },
+
+    select: {
+      userId: true,
+    },
+  });
+
+  const userIds = members.map((member) => member.userId);
+
+  if (!userIds.length) {
+    return [];
+  }
+
+  return prisma.session.findMany({
+    where: {
+      userId: {
+        in: userIds,
+      },
+    },
+
+    select: {
+      id: true,
+      userId: true,
+      expiresAt: true,
+      lastActiveAt: true,
+      ipAddress: true,
+      userAgent: true,
+      deviceSource: true,
+      createdAt: true,
+      revokedAt: true,
+
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          status: true,
+        },
+      },
+    },
+
+    orderBy: {
+      lastActiveAt: 'desc',
+    },
+
+    take: 100,
+  });
+},
+
+// ------------------------------------------------------------
+// Vendor Activity
+// ------------------------------------------------------------
+
+async findActivityContextByVendorId(vendorId) {
+  const [members, bookings] = await Promise.all([
+    prisma.vendorMember.findMany({
+      where: {
+        vendorId,
+      },
+      select: {
+        userId: true,
+      },
+    }),
+
+    prisma.booking.findMany({
+      where: {
+        vendorId,
+      },
+      select: {
+        id: true,
+      },
+    }),
+  ]);
+
+  return {
+    userIds: members.map((member) => member.userId),
+    bookingIds: bookings.map((booking) => booking.id),
+  };
+},
+
+async findActivityLogsByVendorId(vendorId) {
+  const context =
+    await this.findActivityContextByVendorId(vendorId);
+
+  const conditions = [
+    {
+      entityId: vendorId,
+    },
+  ];
+
+  if (context.userIds.length) {
+    conditions.push({
+      userId: {
+        in: context.userIds,
+      },
+    });
+  }
+
+  if (context.bookingIds.length) {
+    conditions.push({
+      entityId: {
+        in: context.bookingIds,
+      },
+    });
+  }
+
+  const [activityLogs, auditLogs] =
+    await Promise.all([
+      prisma.activityLog.findMany({
+        where: {
+          OR: conditions,
+        },
+
+        select: {
+          id: true,
+          userId: true,
+          action: true,
+          module: true,
+          entity: true,
+          entityId: true,
+          metadata: true,
+          ipAddress: true,
+          userAgent: true,
+          createdAt: true,
+
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+
+        orderBy: {
+          createdAt: 'desc',
+        },
+
+        take: 100,
+      }),
+
+      prisma.auditLog.findMany({
+        where: {
+          OR: conditions,
+        },
+
+        select: {
+          id: true,
+          userId: true,
+          action: true,
+          module: true,
+          entity: true,
+          entityId: true,
+          result: true,
+          metadata: true,
+          requestId: true,
+          ipAddress: true,
+          userAgent: true,
+          createdAt: true,
+
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+
+        orderBy: {
+          createdAt: 'desc',
+        },
+
+        take: 100,
+      }),
+    ]);
+
+  return {
+    activityLogs,
+    auditLogs,
+  };
+},
   // ------------------------------------------------------------
   // Vendor Bank Accounts
   // ------------------------------------------------------------

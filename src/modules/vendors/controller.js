@@ -341,6 +341,112 @@ const VendorsController = {
     }
   },
 
+// ------------------------------------------------------------
+// Vendor Staff
+// ------------------------------------------------------------
+
+// ------------------------------------------------------------
+// Vendor Settlements
+// ------------------------------------------------------------
+
+async listSettlements(req, res, next) {
+  try {
+    const result =
+      await vendorService.getVendorSettlements(
+        req.params.vendorId,
+        req.query,
+      );
+
+    return success(res, {
+      message:
+        'Vendor settlements fetched successfully.',
+      data: result.data,
+      meta: result.pagination,
+    });
+  } catch (error) {
+    next(error);
+  }
+},
+async listStaff(req, res, next) {
+  try {
+    const staff =
+      await vendorService.getVendorStaff(
+        req.params.vendorId,
+      );
+
+    return success(res, {
+      message:
+        'Vendor staff fetched successfully.',
+      data: staff,
+    });
+  } catch (error) {
+    next(error);
+  }
+},
+
+// ------------------------------------------------------------
+// Vendor Revenue
+// ------------------------------------------------------------
+
+async getRevenue(req, res, next) {
+  try {
+    const revenue =
+      await vendorService.getVendorRevenue(
+        req.params.vendorId,
+      );
+
+    return success(res, {
+      message:
+        'Vendor revenue fetched successfully.',
+      data: revenue,
+    });
+  } catch (error) {
+    next(error);
+  }
+},
+
+// ------------------------------------------------------------
+// Vendor Activity
+// ------------------------------------------------------------
+
+async listActivity(req, res, next) {
+  try {
+    const activity =
+      await vendorService.getVendorActivity(
+        req.params.vendorId,
+      );
+
+    return success(res, {
+      message:
+        'Vendor activity fetched successfully.',
+      data: activity,
+    });
+  } catch (error) {
+    next(error);
+  }
+},
+
+// ------------------------------------------------------------
+// Vendor Sessions
+// ------------------------------------------------------------
+
+async listSessions(req, res, next) {
+  try {
+    const sessions =
+      await vendorService.getVendorSessions(
+        req.params.vendorId,
+      );
+
+    return success(res, {
+      message:
+        'Vendor sessions fetched successfully.',
+      data: sessions,
+    });
+  } catch (error) {
+    next(error);
+  }
+},
+
   // ============================================================
   // Vendor Bank Accounts
   // ============================================================
