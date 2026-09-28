@@ -233,6 +233,7 @@ async function finalizeCapturedPayment(
         'Provider payment does not match the stored booking.',
         'PAYMENT_RECONCILIATION_MISMATCH',
       );
+    await require('../vendors/settlementFinancialGuard').markFinancialReview(tx, booking.id, 'PAYMENT_CAPTURE_CHANGED');
     await tx.payment.update({
       where: { id: payment.id },
       data: { status: 'succeeded', operationalStatus: 'review_required', paidAt: new Date() },
@@ -254,6 +255,7 @@ async function finalizeCapturedPayment(
     !['PENDING', 'PAYMENT_PENDING', 'EXPIRED'].includes(booking.status) ||
     blockingOther(all, booking, new Date())
   ) {
+    await require('../vendors/settlementFinancialGuard').markFinancialReview(tx, booking.id, 'PAYMENT_CAPTURE_CHANGED');
     await tx.payment.update({
       where: { id: payment.id },
       data: {
@@ -265,6 +267,7 @@ async function finalizeCapturedPayment(
     });
     return { latePaymentConflict: true };
   }
+  await require('../vendors/settlementFinancialGuard').markFinancialReview(tx, booking.id, 'PAYMENT_CAPTURE_CHANGED');
   const settledPayment = await tx.payment.update({
     where: { id: payment.id },
     data: {
@@ -319,6 +322,7 @@ async function processWebhookLocked({ eventId, rawBody, afterPaymentUpdate }) {
         },
       });
       const done = async (paymentId, result) => {
+        if (paymentId && candidateBooking) await require('../vendors/settlementFinancialGuard').markFinancialReview(tx, candidateBooking.id, 'PAYMENT_EVENT_RECORDED');
         await tx.paymentWebhookEvent.update({
           where: { id: webhook.id },
           data: { paymentId, processedAt: new Date() },

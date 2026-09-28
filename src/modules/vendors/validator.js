@@ -160,6 +160,12 @@ const updateDocumentSchema = z.object({
   remarks: z.string().trim().max(500).optional().nullable(),
 });
 
+const settlementPreviewSchema = z.object({
+  page: z.coerce.number().int().min(1).max(100000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  currency: z.string().regex(/^[A-Z]{3}$/).optional(),
+}).strict();
+
 const listSettlementsSchema = z.object({
   page: z.coerce
     .number()
@@ -208,6 +214,7 @@ module.exports = {
   updateDocumentSchema,
   bankAccountSchema,
   listSettlementsSchema,
+  settlementPreviewSchema,
   VENDOR_STATUS,
   VENDOR_VERIFICATION_STATUS,
 };

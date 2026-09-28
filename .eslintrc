@@ -24,6 +24,8 @@
     "no-unreachable": "error",
     "require-atomic-updates": "off"
   },
-  "ignorePatterns": ["node_modules/", "coverage/", "logs/", "dist/", "build/"]
+  "ignorePatterns": ["node_modules/", "coverage/", "logs/", "dist/", "build/",
+    "backup-return-20260920-232252/service.js",
+    "backup-return-20260920-232305/service.js"]
 }
 

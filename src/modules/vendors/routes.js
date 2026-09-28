@@ -25,6 +25,7 @@ const {
   updateDocumentSchema,
   bankAccountSchema,
   listSettlementsSchema,
+  settlementPreviewSchema,
 } = require('./validator');
 
 const router = Router();
@@ -123,10 +124,31 @@ router.get(
 // Vendor Settlements
 // ------------------------------------------------------------
 
+router.post(
+  '/:vendorId/settlements',
+  authenticate,
+  authorize(['admin.all']),
+  validate({ params: idParamSchema, body: require('./settlementGeneration').bodySchema }),
+  async (req, res, next) => {
+    try {
+      const result = await require('./settlementGeneration').generateSettlement(req.user, req.params.vendorId, req.body, req.get('Idempotency-Key'));
+      const respond = result.replayed ? require('../../utils/response').success : require('../../utils/response').created;
+      return respond(res, { message: 'Vendor settlement recorded.', data: result });
+    } catch (err) { next(err); }
+  },
+);
+
+router.get(
+  '/:vendorId/settlements/preview',
+  authenticate,
+  authorize(['vendors.view', 'admin.all']),
+  validate({ params: idParamSchema, query: settlementPreviewSchema }),
+  controller.previewSettlements,
+);
 router.get(
   '/:vendorId/settlements',
   authenticate,
-  authorize('vendors.view'),
+  authorize(['vendors.view', 'admin.all']),
   validate({
     params: idParamSchema,
     query: listSettlementsSchema,

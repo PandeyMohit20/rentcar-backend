@@ -1,0 +1,297 @@
+﻿'use strict';
+
+const request = require('supertest');
+const { createApp } = require('../src/app');
+const {
+  prisma,
+  resetStore,
+  seedUser,
+} = require('./helpers/auth');
+const { signAccessToken } = require('../src/utils/jwt');
+
+describe('Coupon booking consumption', () => {
+  let app;
+  let user;
+  let token;
+  let car;
+
+  const pickup =
+    '2026-10-10T10:00:00+05:30';
+  const returnDateTime =
+    '2026-10-11T10:00:00+05:30';
+
+  beforeAll(() => {
+    app = createApp();
+  });
+
+  beforeEach(async () => {
+    resetStore();
+
+    user = await seedUser({
+      email: 'coupon-booking@example.com',
+    });
+
+    token = signAccessToken({
+      sub: user.id,
+      type: 'access',
+    });
+
+    car = await prisma.car.create({
+      data: {
+        vendorId: 'vendor-coupon',
+        branchId: 'branch-coupon',
+        registrationNumber:
+          `COUPON-${Math.random()}`,
+        brand: 'Toyota',
+        model: 'Camry',
+        manufacturingYear: 2025,
+        status: 'available',
+        isDeleted: false,
+      },
+    });
+
+    await prisma.carPricing.create({
+      data: {
+        carId: car.id,
+        dailyPrice: 1000,
+        securityDeposit: 500,
+        currencyCode: 'INR',
+        status: 'active',
+      },
+    });
+  });
+
+  async function createCoupon(overrides = {}) {
+    return prisma.coupon.create({
+      data: {
+        code: 'SAVE10',
+        discountType: 'percentage',
+        discountValue: 10,
+        minimumBookingAmount: null,
+        maximumDiscount: null,
+        startDate: null,
+        endDate: null,
+        usageLimit: 10,
+        perUserLimit: 1,
+        status: 'active',
+        isDeleted: false,
+        ...overrides,
+      },
+    });
+  }
+
+  async function quote(code) {
+    const response = await request(app)
+      .post('/api/v1/pricing/quote')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        carId: car.id,
+        pickupDateTime: pickup,
+        returnDateTime,
+        ...(code ? { couponCode: code } : {}),
+      });
+
+    expect(response.status).toBe(200);
+    return response.body.data;
+  }
+
+  function book(quoteToken, key) {
+    return request(app)
+      .post('/api/v1/bookings')
+      .set('Authorization', `Bearer ${token}`)
+      .set('Idempotency-Key', key)
+      .send({ quoteToken });
+  }
+
+  it('persists net rental, discount and one coupon usage atomically', async () => {
+    const coupon = await createCoupon();
+    const quoted = await quote('SAVE10');
+
+    expect(quoted).toMatchObject({
+      originalRentalSubtotal: 1000,
+      rentalSubtotal: 900,
+      discountAmount: 100,
+      securityDeposit: 500,
+    });
+
+    const response = await book(
+      quoted.quoteToken,
+      'coupon-book-1',
+    );
+
+    expect(response.status).toBe(201);
+
+    expect(response.body.data).toMatchObject({
+      subtotal: 900,
+      discount: 100,
+      securityDeposit: 500,
+    });
+
+    const booking =
+      await prisma.booking.findUnique({
+        where: {
+          id: response.body.data.id,
+        },
+      });
+
+    expect(Number(booking.subtotal)).toBe(900);
+    expect(Number(booking.discount)).toBe(100);
+
+    const usages =
+      await prisma.couponUsage.findMany({
+        where: {
+          bookingId: booking.id,
+        },
+      });
+
+    expect(usages).toHaveLength(1);
+    expect(usages[0]).toMatchObject({
+      couponId: coupon.id,
+      userId: user.id,
+      bookingId: booking.id,
+    });
+    expect(Number(usages[0].discountAmount)).toBe(100);
+  });
+
+  it('does not create another usage on idempotent replay', async () => {
+    await createCoupon();
+
+    const quoted = await quote('SAVE10');
+
+    const first = await book(
+      quoted.quoteToken,
+      'coupon-replay',
+    );
+
+    expect(first.status).toBe(201);
+
+    const replay = await book(
+      quoted.quoteToken,
+      'coupon-replay',
+    );
+
+    expect(replay.status).toBe(200);
+    expect(replay.body.data.id)
+      .toBe(first.body.data.id);
+
+    expect(
+      await prisma.couponUsage.count(),
+    ).toBe(1);
+  });
+
+  it('revalidates per-user usage at booking time', async () => {
+    const coupon = await createCoupon({
+      perUserLimit: 1,
+    });
+
+    const quoted = await quote('SAVE10');
+
+    await prisma.couponUsage.create({
+      data: {
+        couponId: coupon.id,
+        userId: user.id,
+        bookingId:
+          '00000000-0000-4000-8000-000000000099',
+        discountAmount: 100,
+      },
+    });
+
+    const response = await book(
+      quoted.quoteToken,
+      'coupon-limit',
+    );
+
+    expect(response.status).toBe(422);
+    expect(await prisma.booking.count()).toBe(0);
+  });
+
+  it('rejects changed coupon terms and creates no booking or usage', async () => {
+    const coupon = await createCoupon();
+
+    const quoted = await quote('SAVE10');
+
+    await prisma.coupon.update({
+      where: { id: coupon.id },
+      data: {
+        discountValue: 20,
+      },
+    });
+
+    const response = await book(
+      quoted.quoteToken,
+      'coupon-changed',
+    );
+
+    expect(response.status).toBe(409);
+
+    expect(await prisma.booking.count()).toBe(0);
+    expect(
+      await prisma.couponUsage.count(),
+    ).toBe(0);
+  });
+
+  it('rolls back booking when coupon usage creation fails', async () => {
+    await createCoupon();
+
+    const quoted = await quote('SAVE10');
+
+    const original =
+      prisma.couponUsage.create;
+
+    prisma.couponUsage.create =
+      async () => {
+        throw new Error(
+          'forced coupon usage failure',
+        );
+      };
+
+    try {
+      const response = await book(
+        quoted.quoteToken,
+        'coupon-rollback',
+      );
+
+      expect(response.status).toBe(500);
+
+      expect(
+        await prisma.booking.count(),
+      ).toBe(0);
+
+      expect(
+        await prisma.bookingItem.count(),
+      ).toBe(0);
+
+      expect(
+        await prisma.bookingStatusHistory.count(),
+      ).toBe(0);
+
+      expect(
+        await prisma.couponUsage.count(),
+      ).toBe(0);
+    } finally {
+      prisma.couponUsage.create = original;
+    }
+  });
+
+  it('leaves non-coupon booking behaviour unchanged', async () => {
+    const quoted = await quote();
+
+    const response = await book(
+      quoted.quoteToken,
+      'plain-booking',
+    );
+
+    expect(response.status).toBe(201);
+
+    expect(response.body.data).toMatchObject({
+      subtotal: 1000,
+      discount: 0,
+      securityDeposit: 500,
+      totalAmount: 1500,
+    });
+
+    expect(
+      await prisma.couponUsage.count(),
+    ).toBe(0);
+  });
+});

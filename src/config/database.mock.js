@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 /**
  * In-memory Prisma mock for tests.
@@ -277,6 +277,8 @@ function createMockPrisma() {
     vendorDocument: [],
     userDocument: [],
     vendorMember: [],
+    vendorSettlement: [],
+    vendorSettlementItem: [],
     city: [],
     location: [],
     branch: [],
@@ -288,7 +290,9 @@ function createMockPrisma() {
     carAvailability: [],
     booking: [],
     bookingItem: [],
-    bookingStatusHistory: [],
+    bookingStatusHistory: [],
+    coupon: [],
+    couponUsage: [],
     tripHistory: [],
     tripExtension: [],
     tripPhoto: [],
@@ -326,6 +330,9 @@ function createMockPrisma() {
     },
     $store: store,
 
+    vendorSettlement: createModel('vendorSettlement', store),
+    vendorSettlementItem: createModel('vendorSettlementItem', store),
+
     user: createModel('user', store),
     profile: createModel('profile', store),
     address: createModel('address', store),
@@ -353,7 +360,9 @@ function createMockPrisma() {
     carAvailability: createModel('carAvailability', store),
     booking: createModel('booking', store),
     bookingItem: createModel('bookingItem', store),
-    bookingStatusHistory: createModel('bookingStatusHistory', store),
+    bookingStatusHistory: createModel('bookingStatusHistory', store),
+    coupon: createModel('coupon', store),
+    couponUsage: createModel('couponUsage', store),
     tripHistory: createModel('tripHistory', store),
     tripExtension: createModel('tripExtension', store),
     tripPhoto: createModel('tripPhoto', store),
@@ -366,6 +375,57 @@ function createMockPrisma() {
     setting: createModel('setting', store),
     invoiceSequence: createModel('invoiceSequence', store),
     emailDelivery: createModel('emailDelivery', store),
+  };
+  const createCoupon = prisma.coupon.create;
+
+  prisma.coupon.create = async ({ data }) => {
+    if (
+      data.code &&
+      store.coupon.some(
+        (coupon) => coupon.code === data.code,
+      )
+    ) {
+      const err = new Error(
+        'Unique constraint failed',
+      );
+      err.code = 'P2002';
+      err.meta = { target: ['code'] };
+      throw err;
+    }
+
+    return createCoupon({
+      data: {
+        status: 'active',
+        perUserLimit: 1,
+        isDeleted: false,
+        ...data,
+      },
+    });
+  };
+
+  const createCouponUsage =
+    prisma.couponUsage.create;
+
+  prisma.couponUsage.create = async ({ data }) => {
+    const duplicate =
+      store.couponUsage.some(
+        (usage) =>
+          usage.couponId === data.couponId &&
+          usage.bookingId === data.bookingId,
+      );
+
+    if (duplicate) {
+      const err = new Error(
+        'Unique constraint failed',
+      );
+      err.code = 'P2002';
+      err.meta = {
+        target: ['couponId', 'bookingId'],
+      };
+      throw err;
+    }
+
+    return createCouponUsage({ data });
   };
 
   const createBooking = prisma.booking.create;
@@ -395,6 +455,23 @@ function createMockPrisma() {
     }
     return createVendorMember({ data });
   };
+
+  for (const model of ['vendorSettlement', 'vendorSettlementItem']) {
+    const create = prisma[model].create;
+    prisma[model].create = async ({ data }) => {
+      const fields = model === 'vendorSettlement'
+        ? [['id'], ['settlementNumber'], ['payoutReference'], ['vendorId', 'idempotencyKeyHash']]
+        : [['id'], ['bookingId', 'paymentId']];
+      for (const keys of fields) {
+        if (keys.every((key) => data[key] !== null && data[key] !== undefined) && store[model].some((row) => keys.every((key) => row[key] === data[key]))) {
+          const err = new Error('Unique constraint failed');
+          err.code = 'P2002'; err.meta = { target: keys };
+          throw err;
+        }
+      }
+      return create({ data: model === 'vendorSettlement' ? { requiresFinancialReview: false, financialReviewReason: null, ...data } : data });
+    };
+  }
 
   const createPayment = prisma.payment.create;
   prisma.payment.create = async ({ data }) => {

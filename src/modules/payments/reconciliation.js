@@ -124,6 +124,7 @@ async function reconcile({ userId, bookingId }) {
       orders.length > 10 ||
       new Set(orders.map((p) => p.providerOrderId)).size !== orders.length
     ) {
+      await require('../vendors/settlementFinancialGuard').markFinancialReview(tx, bookingId, 'PAYMENT_RECONCILIATION_CONFLICT');
       await tx.auditLog.create({ data: auditData(b, null, userId, 'ambiguous_order') });
       return {
         error: failure(
@@ -156,6 +157,7 @@ async function reconcile({ userId, bookingId }) {
         'RATE_LIMITED',
         429,
       );
+    await require('../vendors/settlementFinancialGuard').markFinancialReview(tx, bookingId, 'PAYMENT_RECONCILIATION_STARTED');
     const audit = await tx.auditLog.create({
       data: auditData(b, payment, userId, 'fetch_started'),
     });

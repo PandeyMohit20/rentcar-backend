@@ -37,14 +37,16 @@ async function main() {
     const saved = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
       "$ErrorActionPreference='Stop'; $entry=[Console]::ReadLine() | ConvertFrom-Json; " +
       "if (Test-Path -LiteralPath $entry.path) { throw 'Credential file already exists; refusing overwrite.' }; " +
-      "New-Item -ItemType Directory -Force -Path (Split-Path -Parent $entry.path) | Out-Null; " +
-      "$secure=ConvertTo-SecureString $entry.password -AsPlainText -Force; " +
-      "$credential=New-Object System.Management.Automation.PSCredential($entry.email,$secure); " +
-      "$credential | Export-Clixml -LiteralPath $entry.path"],
+      'New-Item -ItemType Directory -Force -Path (Split-Path -Parent $entry.path) | Out-Null; ' +
+      '$secure=ConvertTo-SecureString $entry.password -AsPlainText -Force; ' +
+      '$credential=New-Object System.Management.Automation.PSCredential($entry.email,$secure); ' +
+      '$credential | Export-Clixml -LiteralPath $entry.path'],
     { input: JSON.stringify({ email, password, path: credentialPath }) + '\n', encoding: 'utf8', windowsHide: true });
     if (saved.status !== 0) throw new Error('Unable to save protected credentials; password was not changed.');
     await prisma.user.update({ where: { id: accountId }, data: { passwordHash: await hashPassword(password) }, select: { id: true } });
+    // eslint-disable-next-line no-console -- Intentional CLI report on stdout; preserve operator output.
     console.log('Local UAT password reset. Protected credential file: ' + credentialPath);
+    // eslint-disable-next-line no-console -- Intentional CLI report on stdout; preserve operator output.
     console.log('Temporary password: change immediately after login.');
     const root = 'http://localhost:5000/api/v1/auth';
     const login = await fetch(root + '/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -59,10 +61,12 @@ async function main() {
       if (!me.ok || actual?.id !== accountId || !actual.roles?.includes('SUPER_ADMIN')) {
         throw new Error(`Identity verification failed (HTTP ${me.status}).`);
       }
+      // eslint-disable-next-line no-console -- Intentional CLI report on stdout; preserve operator output.
       console.log(JSON.stringify({ login: 'PASS', authMe: 'PASS', userId: actual.id, email: actual.email,
         roles: actual.roles, status: actual.status }));
     } finally {
       const logout = await fetch(root + '/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, redirect: 'error' });
+      // eslint-disable-next-line no-console -- Intentional CLI report on stdout; preserve operator output.
       console.log('Verification session logout HTTP ' + logout.status);
     }
   } finally { await prisma.$disconnect(); }

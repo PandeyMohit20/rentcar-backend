@@ -1,11 +1,20 @@
-'use strict';
+﻿'use strict';
 
 const { Router } = require('express');
-const { notImplementedRouter } = require('../../routes/notImplemented');
+const { authenticate } = require('../../middlewares/authenticate');
+const { authorize } = require('../../middlewares/authorize');
+const { validate } = require('../../middlewares/validate');
+const { AnalyticsController } = require('./controller');
+const { analyticsQuerySchema } = require('./validator');
 
 const router = Router();
 
-// Phase 19 placeholder — business logic implemented in a later phase.
-router.use(notImplementedRouter('analytics'));
+router.get(
+  '/',
+  authenticate,
+  authorize('analytics.view'),
+  validate({ query: analyticsQuerySchema }),
+  AnalyticsController.overview,
+);
 
 module.exports = { analyticsRouter: router };

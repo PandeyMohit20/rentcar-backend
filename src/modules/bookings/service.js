@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const crypto = require('crypto');
 const { Prisma } = require('@prisma/client');
@@ -10,11 +10,34 @@ const errorCodes = require('../../errors/errorCodes');
 const { verifyQuote } = require('../pricing/service');
 const { paise } = require('../pricing/tax');
 const { checkCarAvailability } = require('../availability/service');
+const { validateCouponForUser } = require('../coupons/service');
 const { selectAuthoritativePayment, customerPaymentSummary } = require('../payments/recovery');
 
 const conflict = (message) => new AppError(message, httpStatus.CONFLICT, errorCodes.CONFLICT);
 const notFound = () => new AppError('Booking not found.', httpStatus.NOT_FOUND, errorCodes.RESOURCE_NOT_FOUND);
-function fingerprint(userId, quote) { return crypto.createHash('sha256').update(JSON.stringify({ userId, carId: quote.carId, startAt: quote.pickupDateTime, endAt: quote.returnDateTime, pricingId: quote.pricingId, rentalSubtotal: quote.rentalSubtotal, securityDeposit: quote.securityDeposit, payableAmount: quote.payableAmount, currencyCode: quote.currencyCode, financialSnapshot: quote.financialSnapshot })).digest('hex'); }
+function fingerprint(userId, quote) {
+  return crypto
+    .createHash('sha256')
+    .update(
+      JSON.stringify({
+        userId,
+        carId: quote.carId,
+        startAt: quote.pickupDateTime,
+        endAt: quote.returnDateTime,
+        pricingId: quote.pricingId,
+        originalRentalSubtotal:
+          quote.originalRentalSubtotal ?? quote.rentalSubtotal,
+        rentalSubtotal: quote.rentalSubtotal,
+        discountAmount: quote.discountAmount || 0,
+        couponSnapshot: quote.couponSnapshot || null,
+        securityDeposit: quote.securityDeposit,
+        payableAmount: quote.payableAmount,
+        currencyCode: quote.currencyCode,
+        financialSnapshot: quote.financialSnapshot,
+      }),
+    )
+    .digest('hex');
+}
 function safeCar(car, primaryImage) {
   if (!car) return null;
   return {
@@ -54,14 +77,76 @@ async function customerCars(carIds) {
 }
 async function existing(userId, key) { return prisma.booking.findFirst({ where: { userId, idempotencyKey: key } }); }
 function decode(token) { try { return verifyQuote(token); } catch (_) { throw new AppError('Invalid or expired quote token.', httpStatus.UNPROCESSABLE_ENTITY, errorCodes.VALIDATION_ERROR); } }
-async function createBooking({ userId, quoteToken, idempotencyKey }) { const quote = decode(quoteToken); const uatBypass = quote.financialSnapshot?.taxMode === 'UAT_BYPASS'; if (uatBypass && !require('../../config/uatTax').isUatTaxBypass()) throw conflict('UAT quote is disabled. Request a fresh quote.'); if (quote.userId && quote.userId !== userId) throw conflict('Quote belongs to another customer.'); if (quote.financialSnapshot?.policyStatus !== 'confirmed' && env.NODE_ENV === 'production') throw conflict('A fresh tax quote is required.'); const hash = fingerprint(userId, quote); const replay = await existing(userId, idempotencyKey); if (replay) { if (replay.idempotencyHash === hash) return { booking: dto(replay), replayed: true }; throw conflict('Idempotency key was already used for a different request.'); } try { const booking = await prisma.$transaction(async (tx) => { if (tx.$queryRaw) await tx.$queryRaw(Prisma.sql`SELECT id FROM cars WHERE id = ${quote.carId} FOR UPDATE`); const availability = await checkCarAvailability(quote.carId, quote.pickupDateTime, quote.returnDateTime, tx); if (!availability.available) throw conflict('Car is no longer available for the requested interval.'); const currentVendor = await tx.vendor.findUnique({ where: { id: availability.car.vendorId }, select: { taxProfile: true, commissionRate: true } }); if ((quote.financialSnapshot?.policyStatus === 'confirmed' && !quote.financialSnapshot.gstRegistrationStatus) || (quote.financialSnapshot?.gstRegistrationStatus && currentVendor?.taxProfile?.gstRegistrationStatus !== quote.financialSnapshot.gstRegistrationStatus)) throw conflict('Seller tax status changed. Request a fresh quote.'); const billingGate = await tx.setting.findUnique({ where: { key: 'billing.issuer.phase7b.pending' } }); if (!uatBypass && billingGate && JSON.parse(billingGate.value).status === 'PARTIALLY_APPROVED_REQUIRES_RATE_AND_CESS_CONFIRMATION') throw conflict('Pricing approval changed. Request a fresh quote after approval.'); const billingSnapshot = quote.billingSnapshot || await require('../invoices/snapshot').billingSnapshot(tx, userId, availability.car.vendorId, availability.car, uatBypass); const commissionRate = Number(currentVendor?.commissionRate || 0);
+async function createBooking({ userId, quoteToken, idempotencyKey }) { const quote = decode(quoteToken); const uatBypass = quote.financialSnapshot?.taxMode === 'UAT_BYPASS'; if (uatBypass && !require('../../config/uatTax').isUatTaxBypass()) throw conflict('UAT quote is disabled. Request a fresh quote.'); if (quote.userId && quote.userId !== userId) throw conflict('Quote belongs to another customer.'); if (quote.financialSnapshot?.policyStatus !== 'confirmed' && env.NODE_ENV === 'production') throw conflict('A fresh tax quote is required.'); const hash = fingerprint(userId, quote); const replay = await existing(userId, idempotencyKey); if (replay) { if (replay.idempotencyHash === hash) return { booking: dto(replay), replayed: true }; throw conflict('Idempotency key was already used for a different request.'); } try { const booking = await prisma.$transaction(async (tx) => { if (tx.$queryRaw) await tx.$queryRaw(Prisma.sql`SELECT id FROM cars WHERE id = ${quote.carId} FOR UPDATE`); const availability = await checkCarAvailability(quote.carId, quote.pickupDateTime, quote.returnDateTime, tx); if (!availability.available) throw conflict('Car is no longer available for the requested interval.');
+
+    let couponValidation = null;
+
+    if (quote.couponSnapshot?.id) {
+      /*
+       * Serialize coupon consumption.
+       *
+       * Quote validation is only a preview. Booking creation is the
+       * authoritative point where usage limits are rechecked.
+       */
+      if (tx.$queryRaw) {
+        await tx.$queryRaw(
+          Prisma.sql`SELECT id FROM coupons WHERE id = ${quote.couponSnapshot.id} FOR UPDATE`,
+        );
+      }
+
+      couponValidation = await validateCouponForUser({
+        code: quote.couponSnapshot.code,
+        bookingAmount:
+          quote.originalRentalSubtotal ?? quote.rentalSubtotal,
+        userId,
+        db: tx,
+      });
+
+      const expectedDiscount = paise(quote.discountAmount || 0);
+      const actualDiscount = paise(
+        couponValidation.discountAmount,
+      );
+      const expectedNetRental = paise(quote.rentalSubtotal);
+      const actualNetRental = paise(
+        couponValidation.discountedAmount,
+      );
+
+      if (
+        couponValidation.coupon.id !== quote.couponSnapshot.id ||
+        couponValidation.coupon.code !== quote.couponSnapshot.code ||
+        actualDiscount !== expectedDiscount ||
+        actualNetRental !== expectedNetRental
+      ) {
+        throw conflict(
+          'Coupon terms changed. Request a fresh quote.',
+        );
+      }
+    } else if (
+      paise(quote.discountAmount || 0) !== 0n
+    ) {
+      throw conflict(
+        'Discount quote is invalid. Request a fresh quote.',
+      );
+    } const currentVendor = await tx.vendor.findUnique({ where: { id: availability.car.vendorId }, select: { taxProfile: true, commissionRate: true } }); if ((quote.financialSnapshot?.policyStatus === 'confirmed' && !quote.financialSnapshot.gstRegistrationStatus) || (quote.financialSnapshot?.gstRegistrationStatus && currentVendor?.taxProfile?.gstRegistrationStatus !== quote.financialSnapshot.gstRegistrationStatus)) throw conflict('Seller tax status changed. Request a fresh quote.'); const billingGate = await tx.setting.findUnique({ where: { key: 'billing.issuer.phase7b.pending' } }); if (!uatBypass && billingGate && JSON.parse(billingGate.value).status === 'PARTIALLY_APPROVED_REQUIRES_RATE_AND_CESS_CONFIRMATION') throw conflict('Pricing approval changed. Request a fresh quote after approval.'); const billingSnapshot = quote.billingSnapshot || await require('../invoices/snapshot').billingSnapshot(tx, userId, availability.car.vendorId, availability.car, uatBypass); const commissionRate = Number(currentVendor?.commissionRate || 0);
 const commissionBasePaise = paise(quote.rentalSubtotal);
 const commissionRateBps = BigInt(Math.round(commissionRate * 100));
 const vendorCommissionPaise =
   (commissionBasePaise * commissionRateBps + 5000n) / 10000n;
 const vendorCommission = Number(vendorCommissionPaise) / 100;
 
-const holdExpiresAt = new Date(Date.now() + env.BOOKING_HOLD_TTL_MINUTES * 60000); const created = await tx.booking.create({ data: { bookingNumber: `BK-${crypto.randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase()}`, userId, vendorId: availability.car.vendorId, carId: quote.carId, startAt: new Date(quote.pickupDateTime), endAt: new Date(quote.returnDateTime), subtotal: quote.rentalSubtotal, tax: quote.financialSnapshot?.tax.totalTax || 0, financialSnapshot: quote.financialSnapshot || undefined, billingSnapshot, discount: 0, securityDeposit: quote.securityDeposit, totalAmount: quote.payableAmount, vendorCommissionRate: commissionRate, vendorCommision: vendorCommission, currencyCode: quote.currencyCode, status: 'PAYMENT_PENDING', paymentStatus: 'pending', holdExpiresAt, idempotencyKey, idempotencyHash: hash } }); await tx.bookingItem.create({ data: { bookingId: created.id, carId: created.carId, itemType: 'car', quantity: 1, unitPrice: created.subtotal, currencyCode: created.currencyCode, subtotal: created.subtotal } }); await tx.bookingStatusHistory.create({ data: { bookingId: created.id, fromStatus: null, toStatus: 'PAYMENT_PENDING', changedBy: userId, reason: 'Temporary payment hold created.' } }); return created; }); return { booking: dto(booking), replayed: false }; } catch (err) { if (err.code === 'P2002') { const raced = await existing(userId, idempotencyKey); if (raced && raced.idempotencyHash === hash) return { booking: dto(raced), replayed: true }; throw conflict('Idempotency key was already used for a different request.'); } throw err; } }
+const holdExpiresAt = new Date(Date.now() + env.BOOKING_HOLD_TTL_MINUTES * 60000); const created = await tx.booking.create({ data: { bookingNumber: `BK-${crypto.randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase()}`, userId, vendorId: availability.car.vendorId, carId: quote.carId, startAt: new Date(quote.pickupDateTime), endAt: new Date(quote.returnDateTime), subtotal: quote.rentalSubtotal, tax: quote.financialSnapshot?.tax.totalTax || 0, financialSnapshot: quote.financialSnapshot || undefined, billingSnapshot, discount: quote.discountAmount || 0, securityDeposit: quote.securityDeposit, totalAmount: quote.payableAmount, vendorCommissionRate: commissionRate, vendorCommision: vendorCommission, currencyCode: quote.currencyCode, status: 'PAYMENT_PENDING', paymentStatus: 'pending', holdExpiresAt, idempotencyKey, idempotencyHash: hash } }); if (couponValidation) {
+      await tx.couponUsage.create({
+        data: {
+          couponId: couponValidation.coupon.id,
+          userId,
+          bookingId: created.id,
+          discountAmount:
+            couponValidation.discountAmount,
+        },
+      });
+    }
+
+    await tx.bookingItem.create({ data: { bookingId: created.id, carId: created.carId, itemType: 'car', quantity: 1, unitPrice: created.subtotal, currencyCode: created.currencyCode, subtotal: created.subtotal } }); await tx.bookingStatusHistory.create({ data: { bookingId: created.id, fromStatus: null, toStatus: 'PAYMENT_PENDING', changedBy: userId, reason: 'Temporary payment hold created.' } }); return created; }); return { booking: dto(booking), replayed: false }; } catch (err) { if (err.code === 'P2002') { const raced = await existing(userId, idempotencyKey); if (raced && raced.idempotencyHash === hash) return { booking: dto(raced), replayed: true }; throw conflict('Idempotency key was already used for a different request.'); } throw err; } }
 async function listMine(userId, query) {
   const page = query.page || 1;
   const limit = query.limit || 20;
@@ -117,6 +202,7 @@ async function cancelBooking({ userId, bookingId, reason, idempotencyKey, testHo
     const updated = await tx.booking.update({ where: { id: booking.id }, data: { status: 'CANCELLED', cancelledAt: now, cancellationReason: reason || null } });
     if (testHooks?.afterBookingMutation) await testHooks.afterBookingMutation({ tx, bookingId: booking.id, booking: updated });
 
+    if (paid) await require('../vendors/settlementFinancialGuard').markFinancialReview(tx, booking.id, 'REFUND_CREATED');
     if (paid) refund = await tx.refund.create({ data: { bookingId: booking.id, paymentId: payment.id, amount: payment.amount, currencyCode: payment.currencyCode, provider: 'razorpay', idempotencyKey, reason: reason || null, status: 'pending' } });
     await tx.bookingStatusHistory.create({ data: { bookingId: booking.id, fromStatus: booking.status, toStatus: 'CANCELLED', changedBy: userId, reason: reason || (paid ? 'Cancelled by customer; refund requested.' : 'Cancelled by customer.') } });
     return paid ? { booking: dto(updated), refund, replayed: false } : { booking: dto(updated), replayed: false };
@@ -124,7 +210,7 @@ async function cancelBooking({ userId, bookingId, reason, idempotencyKey, testHo
 }
 
 async function reconcileRefund(refund, payment, result) { return require('../refunds/service').reconcileProviderResult(refund, result); }
-async function cancelBookingWithRefund(args) { const result = await cancelBooking(args); let refund = result.refund; if (!refund) { const booking = await prisma.booking.findFirst({ where: { id: args.bookingId, userId: args.userId } }); if (booking && booking.status === 'CANCELLED') refund = await prisma.refund.findFirst({ where: { bookingId: booking.id } }); } if (!refund || refund.status === 'succeeded' || refund.status === 'failed') return { ...result, refund }; const payment = await prisma.payment.findUnique({ where: { id: refund.paymentId } }); if (!payment || !payment.providerPaymentId) return { ...result, refund }; const { createRefund } = require('../payments/providers/razorpay'); const { minorUnits } = require('../payments/service'); try { const provider = await createRefund({ providerPaymentId: payment.providerPaymentId, amountMinor: minorUnits(refund.amount), idempotencyKey: refund.idempotencyKey }); await reconcileRefund(refund, payment, provider); return { ...result, refund: await prisma.refund.findUnique({ where: { id: refund.id } }) }; } catch (err) { if (!err.ambiguous) await prisma.refund.update({ where: { id: refund.id }, data: { status: 'failed', failedAt: new Date(), failureReason: 'Razorpay refund request failed.' } }); throw err; } }
+async function cancelBookingWithRefund(args) { const result = await cancelBooking(args); let refund = result.refund; if (!refund) { const booking = await prisma.booking.findFirst({ where: { id: args.bookingId, userId: args.userId } }); if (booking && booking.status === 'CANCELLED') refund = await prisma.refund.findFirst({ where: { bookingId: booking.id } }); } if (!refund || refund.status === 'succeeded' || refund.status === 'failed') return { ...result, refund }; const payment = await prisma.payment.findUnique({ where: { id: refund.paymentId } }); if (!payment || !payment.providerPaymentId) return { ...result, refund }; const { createRefund } = require('../payments/providers/razorpay'); const { minorUnits } = require('../payments/service'); try { const provider = await createRefund({ providerPaymentId: payment.providerPaymentId, amountMinor: minorUnits(refund.amount), idempotencyKey: refund.idempotencyKey }); await reconcileRefund(refund, payment, provider); return { ...result, refund: await prisma.refund.findUnique({ where: { id: refund.id } }) }; } catch (err) { if (!err.ambiguous) await require('../vendors/settlementFinancialGuard').financialTransaction(prisma, refund.bookingId, 'REFUND_UPDATED', (tx) => tx.refund.update({ where: { id: refund.id }, data: { status: 'failed', failedAt: new Date(), failureReason: 'Razorpay refund request failed.' } })); throw err; } }
 
 const pickupNotFound = () => new AppError('Booking not found.', httpStatus.NOT_FOUND, errorCodes.RESOURCE_NOT_FOUND);
 const pickupDto = (booking, car, trip, replayed = false) => ({ bookingId: booking.id, bookingNumber: booking.bookingNumber, status: booking.status, carId: booking.carId, pickup: { time: trip.startTime, odometer: trip.startOdometer, fuelLevelPercent: Number(trip.startFuel) }, carStatus: car.status, replayed });
@@ -134,10 +220,13 @@ function samePickup(trip, startOdometer, fuelLevelPercent, notes) { return trip 
 
 /** Internal testHooks are deliberately service-only and never accepted by HTTP. */
 async function pickupBooking({ operatorId, bookingId, startOdometer, fuelLevelPercent, notes, superAdmin = false, testHooks }) {
+  const lockCandidate = await prisma.booking.findUnique({ where: { id: bookingId } });
+  if (!lockCandidate) throw pickupNotFound();
   return prisma.$transaction(async (tx) => {
+    await lockRow(tx, 'cars', lockCandidate.carId);
     await lockRow(tx, 'bookings', bookingId);
     const booking = await tx.booking.findUnique({ where: { id: bookingId } });
-    if (!booking) throw pickupNotFound();
+    if (!booking || booking.carId !== lockCandidate.carId) throw pickupNotFound();
     if (!superAdmin) {
       const member = await tx.vendorMember.findFirst({ where: { vendorId: booking.vendorId, userId: operatorId } });
       if (!member) throw pickupNotFound();
@@ -189,7 +278,7 @@ function sameReturn(trip, endOdometer, fuelLevelPercent, normalizedNotes) {
       trip.endTime &&
       trip.endOdometer === endOdometer &&
       Number(trip.endFuel) === fuelLevelPercent &&
-      (trip.returnNotes || undefined) === (normalizedNotes || undefined)
+      (trip.returnNotes || undefined) === (normalizedNotes || undefined),
   );
 }
 
@@ -220,7 +309,7 @@ async function returnBooking({
     throw new AppError(
       'End odometer must be a non-negative integer.',
       httpStatus.UNPROCESSABLE_ENTITY,
-      errorCodes.VALIDATION_ERROR
+      errorCodes.VALIDATION_ERROR,
     );
   }
 
@@ -232,7 +321,7 @@ async function returnBooking({
     throw new AppError(
       'Fuel level percent must be an integer between 0 and 100.',
       httpStatus.UNPROCESSABLE_ENTITY,
-      errorCodes.VALIDATION_ERROR
+      errorCodes.VALIDATION_ERROR,
     );
   }
 
@@ -243,18 +332,21 @@ async function returnBooking({
     throw new AppError(
       'Return notes cannot exceed 1000 characters.',
       httpStatus.UNPROCESSABLE_ENTITY,
-      errorCodes.VALIDATION_ERROR
+      errorCodes.VALIDATION_ERROR,
     );
   }
 
+  const lockCandidate = await prisma.booking.findUnique({ where: { id: bookingId } });
+  if (!lockCandidate) throw pickupNotFound();
   return prisma.$transaction(async (tx) => {
+    await lockRow(tx, 'cars', lockCandidate.carId);
     await lockRow(tx, 'bookings', bookingId);
 
     const booking = await tx.booking.findUnique({
       where: { id: bookingId },
     });
 
-    if (!booking) throw pickupNotFound();
+    if (!booking || booking.carId !== lockCandidate.carId) throw pickupNotFound();
 
     if (!superAdmin) {
       const member = await tx.vendorMember.findFirst({
@@ -327,7 +419,7 @@ async function returnBooking({
       throw new AppError(
         'End odometer cannot be below the trip start odometer.',
         httpStatus.UNPROCESSABLE_ENTITY,
-        errorCodes.VALIDATION_ERROR
+        errorCodes.VALIDATION_ERROR,
       );
     }
 
@@ -405,9 +497,8 @@ async function returnBooking({
     return returnDto(
       completedBooking,
       availableCar,
-      completedTrip
+      completedTrip,
     );
   });
 }
 module.exports = { createBooking, listMine, getMine, cancelBooking: cancelBookingWithRefund, cancelBookingForVerification: cancelBooking, pickupBooking, returnBooking, dto, reconcileRefund };
-

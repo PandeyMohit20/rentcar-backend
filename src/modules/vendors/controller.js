@@ -355,6 +355,7 @@ async listSettlements(req, res, next) {
       await vendorService.getVendorSettlements(
         req.params.vendorId,
         req.query,
+        req.user,
       );
 
     return success(res, {
@@ -366,6 +367,12 @@ async listSettlements(req, res, next) {
   } catch (error) {
     next(error);
   }
+},
+async previewSettlements(req, res, next) {
+  try {
+    const result = await vendorService.previewVendorSettlements(req.user, req.params.vendorId, req.query);
+    return success(res, { message: 'Settlement preview fetched successfully.', ...result });
+  } catch (error) { return next(error); }
 },
 async listStaff(req, res, next) {
   try {

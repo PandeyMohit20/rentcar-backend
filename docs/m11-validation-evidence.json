@@ -1,0 +1,472 @@
+{
+  "migration": "20260928143500_add_vendor_settlement_payout_safety",
+  "validatedAt": "2026-09-28T09:06:53.058Z",
+  "before": {
+    "booking": {
+      "count": 25,
+      "digest": "19e8a9b9e192120099043f04864bbeee414ba672a1bd94df8c3fef0e33ff6efd"
+    },
+    "payment": {
+      "count": 28,
+      "digest": "bf8ab75b2d1fe41e11aef8c3420f59f2c9b8ae31a9ac2b391768bb5e648bfef5"
+    },
+    "refund": {
+      "count": 2,
+      "digest": "04245e303feab75527d4d2e95933a40a17f38711eb1f102b564907c92178186e"
+    },
+    "tripHistory": {
+      "count": 1,
+      "digest": "770e8a6b616f3a6e6145afe3d54bc99a5965cb5abd8f3f47e75c053655458fb0"
+    },
+    "vendorSettlement": {
+      "count": 1,
+      "digest": "3a58c04676d39c32cfd4b84b63090730bea1783bafc70ffce099c8ac1553f03c"
+    },
+    "vendorSettlementItem": {
+      "count": 1,
+      "digest": "5a2885789197fbe7b893d991578a708c240fcdd033704313974d928a6973526c"
+    },
+    "vendor": {
+      "count": 4,
+      "digest": "c7e0889b78f069c9da0cff522d17893e051fd4bc0912f405bd826216fcc96198"
+    },
+    "vendorBankAccount": {
+      "count": 1,
+      "digest": "699effd31709b952e3f6e890315604b04ba59f57acc60ccd911dd02fa3403b78"
+    },
+    "setting": {
+      "count": 5,
+      "digest": "1399787dca4599b8c7f7238fe05e25c9e5422840ca26431e5ec4e1916ef322ff"
+    },
+    "bookingStatuses": [
+      {
+        "_count": {
+          "_all": 6
+        },
+        "status": "CONFIRMED"
+      },
+      {
+        "_count": {
+          "_all": 13
+        },
+        "status": "PAYMENT_PENDING"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "status": "COMPLETED"
+      },
+      {
+        "_count": {
+          "_all": 5
+        },
+        "status": "CANCELLED"
+      }
+    ],
+    "settlementStatuses": [
+      {
+        "_count": {
+          "_all": 1
+        },
+        "status": "pending"
+      }
+    ],
+    "uat": {
+      "id": "61b1f4d0-6d08-4f05-a15d-285e534c50d9",
+      "status": "pending",
+      "netPayable": "1890",
+      "bankAccountId": null,
+      "payoutReference": null,
+      "processedAt": null,
+      "failedAt": null,
+      "failureReason": null,
+      "requiresFinancialReview": false,
+      "headerDigest": "ab22c7a9aa905b3501b51a6a82e3143bd314a64fbbda088aafa163722477b5bd",
+      "itemCount": 1,
+      "itemDigest": "5a2885789197fbe7b893d991578a708c240fcdd033704313974d928a6973526c"
+    }
+  },
+  "migrations": {
+    "history": [
+      {
+        "migration_name": "00000000000000_baseline",
+        "checksum": "29becca0b34b90d1a87c5cfd2cceaed9cda09a266a3ac1e6ad74267ae6a35ae7",
+        "finished_at": "2026-09-03T03:23:22.453Z",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260808102136_initial_schema",
+        "checksum": "b8d9912cd23480b4507d193416ea9015557c9d510a17d801e1778353bd09b818",
+        "finished_at": "2026-08-08T10:21:43.478Z",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260808105511_hardening",
+        "checksum": "291c2f8d5312b67ec3e986a5b33e49717d1b78597f418e5ab6782b0bf6aec1c4",
+        "finished_at": "2026-08-08T10:55:11.825Z",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260903000000_add_booking_hold_idempotency",
+        "checksum": "5baee328ec7fc085f9a2de594ab4602b5554b5291accfdf1da1bc46b2442c969",
+        "finished_at": "2026-09-03T03:25:55.437Z",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260903010000_add_razorpay_payment_webhook_foundation",
+        "checksum": "cb277dbdaafa613baa22f88b11d466578fed825f123cc5cfe85d2bc071f79583",
+        "finished_at": "2026-09-03T06:51:14.659Z",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260903020000_add_cancellation_refund_invoice_foundation",
+        "checksum": "83d63a72550f0e8ffa8ec1872b7c7b9b27a9ad5b9944a3c49d2797f463a7b1a2",
+        "finished_at": "2026-09-03T08:23:54.275Z",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260903030000_add_customer_vendor_kyc_foundation",
+        "checksum": "8ce54fab415031ad9d2a253fbaa098ae2e38c3325b7037af10cbca2aaed99ed2",
+        "finished_at": "2026-09-03T11:44:30.569Z",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260904000000_add_trip_operational_operators_and_notes",
+        "checksum": "3d73cf5ef3895e57ee9320572400fca2d4722806a53dcb5ec56d905749fb0b22",
+        "finished_at": "2026-09-04T11:32:24.361Z",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260909090000_tax_invoice_email",
+        "checksum": "396c9fc98e53d403a4ed3f157858043082f0d569f52e1dca509dde8414858620",
+        "finished_at": "2026-09-09T08:20:37.651Z",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260909090100_invoice_sequence",
+        "checksum": "61eac5f12a65be58d0e4b9d5d40b24a44b44e663bbbe4cacdac13b17df164dc6",
+        "finished_at": "2026-09-09T08:42:42.735Z",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260920000100_add_booking_vendor_commission_snapshot",
+        "checksum": "5908389a355d260faa49fa41afa468f7cbd1b508f79219158fe92673ad219d17",
+        "finished_at": "2026-09-20T16:49:08.649Z",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260920000200_add_vendor_settlements",
+        "checksum": "c246e46d0f3a04ecbab8c0dc847b48db7c8e715af316d39743c638fca19ee45d",
+        "finished_at": "2026-09-20T17:21:30.538Z",
+        "rolled_back_at": null
+      },
+      {
+        "migration_name": "20260928110920_add_vendor_settlement_generation_safety",
+        "checksum": "480f3bbf197c62b8b5bbc3b1caa9ca9401183910466d988ef22e0eab409ac05d",
+        "finished_at": "2026-09-28T05:41:31.775Z",
+        "rolled_back_at": null
+      }
+    ],
+    "fileHashes": {
+      "00000000000000_baseline": "29becca0b34b90d1a87c5cfd2cceaed9cda09a266a3ac1e6ad74267ae6a35ae7",
+      "20260903000000_add_booking_hold_idempotency": "5baee328ec7fc085f9a2de594ab4602b5554b5291accfdf1da1bc46b2442c969",
+      "20260903010000_add_razorpay_payment_webhook_foundation": "cb277dbdaafa613baa22f88b11d466578fed825f123cc5cfe85d2bc071f79583",
+      "20260903020000_add_cancellation_refund_invoice_foundation": "83d63a72550f0e8ffa8ec1872b7c7b9b27a9ad5b9944a3c49d2797f463a7b1a2",
+      "20260903030000_add_customer_vendor_kyc_foundation": "8ce54fab415031ad9d2a253fbaa098ae2e38c3325b7037af10cbca2aaed99ed2",
+      "20260904000000_add_trip_operational_operators_and_notes": "3d73cf5ef3895e57ee9320572400fca2d4722806a53dcb5ec56d905749fb0b22",
+      "20260909090000_tax_invoice_email": "396c9fc98e53d403a4ed3f157858043082f0d569f52e1dca509dde8414858620",
+      "20260909090100_invoice_sequence": "61eac5f12a65be58d0e4b9d5d40b24a44b44e663bbbe4cacdac13b17df164dc6",
+      "20260920000100_add_booking_vendor_commission_snapshot": "44c3dcc447b1980b89d53c5c45af3dd1b737fb97bb1503f6b00a0e633deee365",
+      "20260920000200_add_vendor_settlements": "3484623d265d97447b05c3cf281a9a87b41104f7442d2e3ad5a5c744d45b83a2",
+      "20260928110920_add_vendor_settlement_generation_safety": "480f3bbf197c62b8b5bbc3b1caa9ca9401183910466d988ef22e0eab409ac05d",
+      "20260928143500_add_vendor_settlement_payout_safety": "69c24cc3b6592140e8d695e157af519d6aa8d6851ee3e3fce33cda59a53fac76"
+    }
+  },
+  "expectedSchema": {
+    "columns": [
+      {
+        "COLUMN_NAME": "id",
+        "COLUMN_TYPE": "varchar(36)",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "settlement_id",
+        "COLUMN_TYPE": "varchar(36)",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "attempt_number",
+        "COLUMN_TYPE": "int",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "idempotency_key_hash",
+        "COLUMN_TYPE": "varchar(64)",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "request_hash",
+        "COLUMN_TYPE": "varchar(64)",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "provider",
+        "COLUMN_TYPE": "varchar(100)",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "provider_payout_id",
+        "COLUMN_TYPE": "varchar(150)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "bank_account_id",
+        "COLUMN_TYPE": "varchar(36)",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "destination_fingerprint",
+        "COLUMN_TYPE": "varchar(64)",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "destination_snapshot",
+        "COLUMN_TYPE": "json",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "amount",
+        "COLUMN_TYPE": "decimal(14,2)",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "currency_code",
+        "COLUMN_TYPE": "varchar(3)",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "status",
+        "COLUMN_TYPE": "enum('prepared','dispatching','unknown','pending','succeeded','failed')",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": "prepared"
+      },
+      {
+        "COLUMN_NAME": "initiated_by",
+        "COLUMN_TYPE": "varchar(36)",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "initiated_at",
+        "COLUMN_TYPE": "datetime(3)",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": "CURRENT_TIMESTAMP(3)"
+      },
+      {
+        "COLUMN_NAME": "submitted_at",
+        "COLUMN_TYPE": "datetime(3)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "paid_at",
+        "COLUMN_TYPE": "datetime(3)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "failed_at",
+        "COLUMN_TYPE": "datetime(3)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "failure_code",
+        "COLUMN_TYPE": "varchar(100)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "last_reconciled_at",
+        "COLUMN_TYPE": "datetime(3)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "provider_status",
+        "COLUMN_TYPE": "varchar(100)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      {
+        "COLUMN_NAME": "created_at",
+        "COLUMN_TYPE": "datetime(3)",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": "CURRENT_TIMESTAMP(3)"
+      },
+      {
+        "COLUMN_NAME": "updated_at",
+        "COLUMN_TYPE": "datetime(3)",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      }
+    ],
+    "indexes": [
+      {
+        "INDEX_NAME": "payout_attempt_bank_idx",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "bank_account_id"
+      },
+      {
+        "INDEX_NAME": "payout_attempt_initiator_idx",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "initiated_by"
+      },
+      {
+        "INDEX_NAME": "payout_attempt_provider_reference_key",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "provider"
+      },
+      {
+        "INDEX_NAME": "payout_attempt_provider_reference_key",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 2,
+        "COLUMN_NAME": "provider_payout_id"
+      },
+      {
+        "INDEX_NAME": "payout_attempt_provider_status_idx",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "provider"
+      },
+      {
+        "INDEX_NAME": "payout_attempt_provider_status_idx",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 2,
+        "COLUMN_NAME": "status"
+      },
+      {
+        "INDEX_NAME": "payout_attempt_reconciliation_idx",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "status"
+      },
+      {
+        "INDEX_NAME": "payout_attempt_reconciliation_idx",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 2,
+        "COLUMN_NAME": "last_reconciled_at"
+      },
+      {
+        "INDEX_NAME": "payout_attempt_settlement_idempotency_key",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "settlement_id"
+      },
+      {
+        "INDEX_NAME": "payout_attempt_settlement_idempotency_key",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 2,
+        "COLUMN_NAME": "idempotency_key_hash"
+      },
+      {
+        "INDEX_NAME": "payout_attempt_settlement_number_key",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "settlement_id"
+      },
+      {
+        "INDEX_NAME": "payout_attempt_settlement_number_key",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 2,
+        "COLUMN_NAME": "attempt_number"
+      },
+      {
+        "INDEX_NAME": "payout_attempt_settlement_status_idx",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "settlement_id"
+      },
+      {
+        "INDEX_NAME": "payout_attempt_settlement_status_idx",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 2,
+        "COLUMN_NAME": "status"
+      },
+      {
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id"
+      }
+    ],
+    "fks": [
+      {
+        "CONSTRAINT_NAME": "vendor_settlement_payout_attempts_bank_account_id_fkey",
+        "REFERENCED_TABLE_NAME": "vendor_bank_accounts",
+        "DELETE_RULE": "RESTRICT",
+        "UPDATE_RULE": "CASCADE"
+      },
+      {
+        "CONSTRAINT_NAME": "vendor_settlement_payout_attempts_initiated_by_fkey",
+        "REFERENCED_TABLE_NAME": "users",
+        "DELETE_RULE": "RESTRICT",
+        "UPDATE_RULE": "CASCADE"
+      },
+      {
+        "CONSTRAINT_NAME": "vendor_settlement_payout_attempts_settlement_id_fkey",
+        "REFERENCED_TABLE_NAME": "vendor_settlements",
+        "DELETE_RULE": "RESTRICT",
+        "UPDATE_RULE": "CASCADE"
+      }
+    ]
+  },
+  "isolatedValidation": "PASS",
+  "disposableDatabase": "rentcar_m11_test_af2ea216b3c2",
+  "disposal": "dropped",
+  "postdeploy": {
+    "verifiedAt": "2026-09-28T09:09:31.983Z",
+    "unchanged": true,
+    "attempts": 0,
+    "migrationChecksum": "69c24cc3b6592140e8d695e157af519d6aa8d6851ee3e3fce33cda59a53fac76"
+  },
+  "checks": {
+    "prismaGenerate": "PASS",
+    "prismaValidate": "PASS",
+    "databaseToPrismaDiff": "No difference detected",
+    "lint": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "targeted": {
+      "suites": 18,
+      "tests": 225,
+      "failed": 0,
+      "skipped": 0
+    },
+    "fullRegression": {
+      "suites": 62,
+      "tests": 562,
+      "failed": 0,
+      "skipped": 0
+    },
+    "backendHealth": "UP",
+    "providerCalls": 0
+  }
+}

@@ -1096,7 +1096,8 @@ const VendorsService = {
 // Vendor Settlements
 // ------------------------------------------------------------
 
-async getVendorSettlements(vendorId, filters = {}) {
+async getVendorSettlements(vendorId, filters = {}, user) {
+  await require('./settlementAccess').assertSettlementReadAccess(user, vendorId);
   await this._ensureVendorExists(vendorId);
 
   const {
@@ -1256,8 +1257,8 @@ async getVendorSettlements(vendorId, filters = {}) {
                 ),
 
               vendorCommissionRate:
-                item.booking.vendorCommissionRate ==
-                null
+                (item.booking.vendorCommissionRate === null ||
+                  item.booking.vendorCommissionRate === undefined)
                   ? null
                   : Number(
                       item.booking.vendorCommissionRate,
@@ -1285,6 +1286,9 @@ async getVendorSettlements(vendorId, filters = {}) {
           : Math.ceil(total / pageSizeNumber),
     },
   };
+},
+async previewVendorSettlements(user, vendorId, filters = {}) {
+  return require('./settlementPreview').previewVendorSettlements(user, vendorId, filters);
 },
 async getVendorStaff(vendorId) {
   await this._ensureVendorExists(vendorId);

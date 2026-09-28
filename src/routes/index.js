@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const { Router } = require('express');
 const { env } = require('../config/env');
@@ -18,6 +18,8 @@ const { pricingRouter } = require('../modules/pricing/routes');
 const { billingApprovalRouter } = require('../modules/billingApproval/routes');
 const { bookingsRouter } = require('../modules/bookings/routes');
 const { paymentsRouter } = require('../modules/payments/routes');
+const { analyticsRouter } = require('../modules/analytics/routes');
+const { couponRouter } = require('../modules/coupons/routes');
 const { refundsRouter } = require('../modules/refunds/routes');
 const { RefundsController } = require('../modules/refunds/controller');
 const refundSchemas = require('../modules/refunds/validator');
@@ -55,6 +57,8 @@ router.use('/pricing', pricingRouter);
 router.use('/admin/billing-approval', billingApprovalRouter);
 router.use('/bookings', bookingsRouter);
 router.use('/payments', paymentsRouter);
+router.use('/analytics', analyticsRouter);
+router.use('/coupons', couponRouter);
 router.use('/refunds', refundsRouter);
 router.use('/invoices', invoicesRouter);
 router.use('/kyc', kycRouter);

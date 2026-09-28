@@ -1,24 +1,336 @@
-'use strict';
+﻿'use strict';
 const jwt = require('jsonwebtoken'); const crypto = require('crypto'); const { prisma } = require('../../config/database'); const { env } = require('../../config/env'); const AppError = require('../../errors/AppError'); const httpStatus = require('../../constants/httpStatus'); const errorCodes = require('../../errors/errorCodes'); const { checkCarAvailability } = require('../availability/service');
 function selectPricingRecord(records, pickup) { return records.filter((record) => record.status === 'active' && (!record.effectiveFrom || new Date(record.effectiveFrom) <= new Date(pickup)) && (!record.effectiveTo || new Date(record.effectiveTo) >= new Date(pickup))).sort((a, b) => (new Date(b.effectiveFrom || 0) - new Date(a.effectiveFrom || 0)) || (new Date(b.createdAt || 0) - new Date(a.createdAt || 0)) || String(b.id).localeCompare(String(a.id)))[0] || null; }
 function money(value) { return Math.round((value + Number.EPSILON) * 100) / 100; }
 function calculateRentalPrice(pricing, pickup, dropoff) { let remaining = Math.ceil((new Date(dropoff) - new Date(pickup)) / 3600000); const units = []; let subtotal = 0n; const add = (name, hours, rate) => { const count = Math.floor(remaining / hours); if (count && rate !== null && rate !== undefined) { subtotal += BigInt(count) * require('./tax').paise(rate); remaining -= count * hours; units.push({ unit: name, count, rate: Number(rate), amount: require('./tax').major(BigInt(count) * require('./tax').paise(rate)) }); } }; add('month', 720, pricing.monthlyPrice); add('week', 168, pricing.weeklyPrice); add('day', 24, pricing.dailyPrice); if (remaining) { if (pricing.hourlyPrice !== null && pricing.hourlyPrice !== undefined) { subtotal += BigInt(remaining) * require('./tax').paise(pricing.hourlyPrice); units.push({ unit: 'hour', count: remaining, rate: Number(pricing.hourlyPrice), amount: require('./tax').major(BigInt(remaining) * require('./tax').paise(pricing.hourlyPrice)) }); } else { subtotal += require('./tax').paise(pricing.dailyPrice); units.push({ unit: 'day', count: 1, rate: Number(pricing.dailyPrice), amount: Number(pricing.dailyPrice) }); } } const billableHours = Math.ceil((new Date(dropoff) - new Date(pickup)) / 3600000); return { totalMinutes: Math.ceil((new Date(dropoff) - new Date(pickup)) / 60000), billableHours, breakdown: units, rentalSubtotal: require('./tax').major(subtotal) }; }
 function signQuote(payload) { return jwt.sign(payload, env.QUOTE_SIGNING_SECRET, { expiresIn: `${env.QUOTE_TTL_MINUTES}m`, audience: 'rentcar-quote', issuer: 'rentcar-api' }); }
 function verifyQuote(token) { return jwt.verify(token, env.QUOTE_SIGNING_SECRET, { audience: 'rentcar-quote', issuer: 'rentcar-api' }); }
-async function createTrustedQuote({ carId, pickupDateTime, returnDateTime, userId }) { const availability = await checkCarAvailability(carId, pickupDateTime, returnDateTime); if (!availability.car) throw new AppError('Car not found.', httpStatus.NOT_FOUND, errorCodes.RESOURCE_NOT_FOUND); if (!availability.available) throw new AppError('Car is not available for the requested interval.', httpStatus.CONFLICT, errorCodes.CONFLICT, { reasonCode: availability.reasonCode }); const records = await prisma.carPricing.findMany({ where: { carId } }); const pricing = selectPricingRecord(records, pickupDateTime); if (!pricing) throw new AppError('No active pricing record is available for this car.', httpStatus.NOT_FOUND, errorCodes.RESOURCE_NOT_FOUND); const duration = calculateRentalPrice(pricing, pickupDateTime, returnDateTime); const securityDeposit = money(Number(pricing.securityDeposit || 0)); const vendor = await prisma.vendor.findUnique({ where: { id: availability.car.vendorId }, select: { taxProfile: true } });
-const uatBypass = require('../../config/uatTax').isUatTaxBypass();
-const issuerConfig = await prisma.setting.findUnique({ where: { key: 'billing.issuer.phase7b.pending' } });
-if (!uatBypass && issuerConfig && JSON.parse(issuerConfig.value).status === 'PARTIALLY_APPROVED_REQUIRES_RATE_AND_CESS_CONFIRMATION') throw require('./tax').blocked('PARTIALLY_APPROVED_REQUIRES_RATE_AND_CESS_CONFIRMATION');
-const policy = !uatBypass && vendor?.taxProfile ? require('./tax').selectVehiclePolicy(vendor.taxProfile, availability.car) : null;
-if (!policy && env.NODE_ENV === 'production') throw require('./tax').blocked('TAX_POLICY_REQUIRES_BUSINESS_CONFIRMATION');
-if (policy && !userId) throw require('./tax').blocked('CUSTOMER_BILLING_REQUIRED');
-const address = userId ? await prisma.address.findFirst({ where: { userId, isDefault: true }, orderBy: { createdAt: 'asc' } }) : null;
-const recipientConfig = userId ? await prisma.setting.findUnique({ where: { key: 'billing.recipient.' + userId } }) : null;
-const recipientRecord = recipientConfig?.isActive ? JSON.parse(recipientConfig.value) : {};
-const recipientStatus = recipientRecord.registrationStatus;
-const recipient = { registrationStatus: recipientStatus, hasAddressOnRecord: !!address, state: recipientStatus === 'registered' ? recipientRecord.state : address?.state, country: recipientStatus === 'registered' ? recipientRecord.country : address?.country };
-const financialSnapshot = require('./tax').calculateTax({ rentalSubtotal: duration.rentalSubtotal, securityDeposit, currency: pricing.currencyCode, policy, recipient, uatBypass });
-const billingSnapshot = userId ? await require('../invoices/snapshot').billingSnapshot(prisma, userId, availability.car.vendorId, availability.car, uatBypass) : null;
-if (uatBypass) require('../../config/logger').logger.info('UAT tax approval bypass quote', { carId, taxMode: 'UAT_BYPASS' });
-const payableAmount = financialSnapshot.grandTotal; const expiresAt = new Date(Date.now() + env.QUOTE_TTL_MINUTES * 60000).toISOString(); const quoteId = crypto.randomUUID(); const payload = { quoteId, carId, pickupDateTime, returnDateTime, pricingId: pricing.id, currencyCode: pricing.currencyCode, rentalSubtotal: duration.rentalSubtotal, securityDeposit, payableAmount, expiresAt, financialSnapshot, ...(billingSnapshot ? { billingSnapshot } : {}), ...(userId ? { userId } : {}) }; return { quoteId, carId, pickupDateTime, returnDateTime, currencyCode: pricing.currencyCode, duration, pricing: { pricingId: pricing.id, rentalSubtotal: duration.rentalSubtotal, securityDeposit, payableAmount, financialSnapshot }, financialSnapshot, expiresAt, availability: { available: true, held: false }, quoteToken: signQuote(payload) }; }
-module.exports = { selectPricingRecord, calculateRentalPrice, createTrustedQuote, verifyQuote };
+async function createTrustedQuote({
+  carId,
+  pickupDateTime,
+  returnDateTime,
+  couponCode,
+  userId,
+}) {
+  const availability = await checkCarAvailability(
+    carId,
+    pickupDateTime,
+    returnDateTime,
+  );
+
+  if (!availability.car) {
+    throw new AppError(
+      'Car not found.',
+      httpStatus.NOT_FOUND,
+      errorCodes.RESOURCE_NOT_FOUND,
+    );
+  }
+
+  if (!availability.available) {
+    throw new AppError(
+      'Car is not available for the requested interval.',
+      httpStatus.CONFLICT,
+      errorCodes.CONFLICT,
+      { reasonCode: availability.reasonCode },
+    );
+  }
+
+  const records = await prisma.carPricing.findMany({
+    where: { carId },
+  });
+
+  const pricing = selectPricingRecord(
+    records,
+    pickupDateTime,
+  );
+
+  if (!pricing) {
+    throw new AppError(
+      'No active pricing record is available for this car.',
+      httpStatus.NOT_FOUND,
+      errorCodes.RESOURCE_NOT_FOUND,
+    );
+  }
+
+  const duration = calculateRentalPrice(
+    pricing,
+    pickupDateTime,
+    returnDateTime,
+  );
+
+  /*
+   * originalRentalSubtotal:
+   *   Price before coupon.
+   *
+   * rentalSubtotal:
+   *   Trusted net rental consideration after coupon.
+   *
+   * Tax and vendor commission must ultimately use the net
+   * rental subtotal. Security deposit remains separate.
+   */
+  const originalRentalSubtotal = money(
+    Number(duration.rentalSubtotal),
+  );
+
+  let rentalSubtotal = originalRentalSubtotal;
+  let discountAmount = 0;
+  let couponSnapshot = null;
+
+  if (couponCode) {
+    const {
+      validateCouponForUser,
+    } = require('../coupons/service');
+
+    const validation =
+      await validateCouponForUser({
+        code: couponCode,
+        bookingAmount: originalRentalSubtotal,
+        userId,
+      });
+
+    discountAmount = money(
+      Number(validation.discountAmount),
+    );
+
+    rentalSubtotal = money(
+      Number(validation.discountedAmount),
+    );
+
+    couponSnapshot = {
+      id: validation.coupon.id,
+      code: validation.coupon.code,
+      discountType:
+        validation.coupon.discountType,
+      discountValue:
+        validation.coupon.discountValue,
+      maximumDiscount:
+        validation.coupon.maximumDiscount,
+      discountAmount,
+    };
+  }
+
+  const securityDeposit = money(
+    Number(pricing.securityDeposit || 0),
+  );
+
+  const vendor = await prisma.vendor.findUnique({
+    where: {
+      id: availability.car.vendorId,
+    },
+    select: {
+      taxProfile: true,
+    },
+  });
+
+  const uatBypass =
+    require('../../config/uatTax').isUatTaxBypass();
+
+  const issuerConfig =
+    await prisma.setting.findUnique({
+      where: {
+        key: 'billing.issuer.phase7b.pending',
+      },
+    });
+
+  if (
+    !uatBypass &&
+    issuerConfig &&
+    JSON.parse(issuerConfig.value).status ===
+      'PARTIALLY_APPROVED_REQUIRES_RATE_AND_CESS_CONFIRMATION'
+  ) {
+    throw require('./tax').blocked(
+      'PARTIALLY_APPROVED_REQUIRES_RATE_AND_CESS_CONFIRMATION',
+    );
+  }
+
+  const policy =
+    !uatBypass && vendor?.taxProfile
+      ? require('./tax').selectVehiclePolicy(
+          vendor.taxProfile,
+          availability.car,
+        )
+      : null;
+
+  if (!policy && env.NODE_ENV === 'production') {
+    throw require('./tax').blocked(
+      'TAX_POLICY_REQUIRES_BUSINESS_CONFIRMATION',
+    );
+  }
+
+  if (policy && !userId) {
+    throw require('./tax').blocked(
+      'CUSTOMER_BILLING_REQUIRED',
+    );
+  }
+
+  const address = userId
+    ? await prisma.address.findFirst({
+        where: {
+          userId,
+          isDefault: true,
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+      })
+    : null;
+
+  const recipientConfig = userId
+    ? await prisma.setting.findUnique({
+        where: {
+          key: 'billing.recipient.' + userId,
+        },
+      })
+    : null;
+
+  const recipientRecord =
+    recipientConfig?.isActive
+      ? JSON.parse(recipientConfig.value)
+      : {};
+
+  const recipientStatus =
+    recipientRecord.registrationStatus;
+
+  const recipient = {
+    registrationStatus: recipientStatus,
+    hasAddressOnRecord: !!address,
+    state:
+      recipientStatus === 'registered'
+        ? recipientRecord.state
+        : address?.state,
+    country:
+      recipientStatus === 'registered'
+        ? recipientRecord.country
+        : address?.country,
+  };
+
+  /*
+   * IMPORTANT:
+   * Tax receives the NET rental consideration.
+   * Coupon never discounts the refundable security deposit.
+   */
+  const financialSnapshot =
+    require('./tax').calculateTax({
+      rentalSubtotal,
+      securityDeposit,
+      currency: pricing.currencyCode,
+      policy,
+      recipient,
+      uatBypass,
+    });
+
+  const billingSnapshot = userId
+    ? await require('../invoices/snapshot')
+        .billingSnapshot(
+          prisma,
+          userId,
+          availability.car.vendorId,
+          availability.car,
+          uatBypass,
+        )
+    : null;
+
+  if (uatBypass) {
+    require('../../config/logger').logger.info(
+      'UAT tax approval bypass quote',
+      {
+        carId,
+        taxMode: 'UAT_BYPASS',
+      },
+    );
+  }
+
+  const payableAmount =
+    financialSnapshot.grandTotal;
+
+  const expiresAt = new Date(
+    Date.now() +
+      env.QUOTE_TTL_MINUTES * 60000,
+  ).toISOString();
+
+  const quoteId = crypto.randomUUID();
+
+  /*
+   * Everything affecting money is signed.
+   * Client never supplies discount/tax/payable values.
+   */
+  const payload = {
+    quoteId,
+    carId,
+    pickupDateTime,
+    returnDateTime,
+    pricingId: pricing.id,
+    currencyCode: pricing.currencyCode,
+
+    originalRentalSubtotal,
+    discount: discountAmount,
+    rentalSubtotal,
+
+    securityDeposit,
+    payableAmount,
+    expiresAt,
+    financialSnapshot,
+
+    ...(couponSnapshot
+      ? { coupon: couponSnapshot }
+      : {}),
+
+    ...(billingSnapshot
+      ? { billingSnapshot }
+      : {}),
+
+    ...(userId
+      ? { userId }
+      : {}),
+  };
+
+  return {
+    quoteId,
+    carId,
+    pickupDateTime,
+    returnDateTime,
+    currencyCode: pricing.currencyCode,
+
+    duration: {
+      ...duration,
+      originalRentalSubtotal,
+      discount: discountAmount,
+      rentalSubtotal,
+    },
+
+    pricing: {
+      pricingId: pricing.id,
+      originalRentalSubtotal,
+      discount: discountAmount,
+      rentalSubtotal,
+      securityDeposit,
+      payableAmount,
+      financialSnapshot,
+      ...(couponSnapshot
+        ? { coupon: couponSnapshot }
+        : {}),
+    },
+
+    financialSnapshot,
+
+    ...(couponSnapshot
+      ? { coupon: couponSnapshot }
+      : {}),
+
+    expiresAt,
+
+    availability: {
+      available: true,
+      held: false,
+    },
+
+    quoteToken: signQuote(payload),
+  };
+}
+
+module.exports = {
+  selectPricingRecord,
+  calculateRentalPrice,
+  createTrustedQuote,
+  verifyQuote,
+};

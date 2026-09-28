@@ -30,7 +30,7 @@ describe('protected booking return', () => {
     body = {
       endOdometer: 150,
       fuelLevelPercent: 60,
-    }
+    },
   ) =>
     request(app)
       .post(`/api/v1/bookings/${booking.id}/return`)
@@ -116,7 +116,7 @@ describe('protected booking return', () => {
 
   it('requires bookings.operate and vendor membership, then completes the return atomically', async () => {
     expect(
-      (await returnVehicle(customer)).status
+      (await returnVehicle(customer)).status,
     ).toBe(403);
 
     const outsider = await seedUser({
@@ -125,7 +125,7 @@ describe('protected booking return', () => {
     });
 
     expect(
-      (await returnVehicle(outsider)).status
+      (await returnVehicle(outsider)).status,
     ).toBe(404);
 
     const response = await returnVehicle(member, {
@@ -171,7 +171,7 @@ describe('protected booking return', () => {
             id: booking.id,
           },
         })
-      ).status
+      ).status,
     ).toBe('COMPLETED');
 
     const updatedCar = await prisma.car.findUnique({
@@ -190,7 +190,7 @@ describe('protected booking return', () => {
           fromStatus: 'ACTIVE',
           toStatus: 'COMPLETED',
         },
-      })
+      }),
     ).toBe(1);
 
     expect(
@@ -198,7 +198,7 @@ describe('protected booking return', () => {
         where: {
           action: 'booking.return.completed',
         },
-      })
+      }),
     ).toBe(1);
   });
 
@@ -210,7 +210,7 @@ describe('protected booking return', () => {
     };
 
     expect(
-      (await returnVehicle(member, body)).status
+      (await returnVehicle(member, body)).status,
     ).toBe(200);
 
     const replay = await returnVehicle(member, body);
@@ -224,7 +224,7 @@ describe('protected booking return', () => {
           ...body,
           endOdometer: 151,
         })
-      ).status
+      ).status,
     ).toBe(409);
 
     expect(
@@ -233,7 +233,7 @@ describe('protected booking return', () => {
           bookingId: booking.id,
           toStatus: 'COMPLETED',
         },
-      })
+      }),
     ).toBe(1);
 
     expect(
@@ -241,7 +241,7 @@ describe('protected booking return', () => {
         where: {
           action: 'booking.return.completed',
         },
-      })
+      }),
     ).toBe(1);
   });
 
@@ -252,7 +252,7 @@ describe('protected booking return', () => {
           endOdometer: 99,
           fuelLevelPercent: 60,
         })
-      ).status
+      ).status,
     ).toBe(422);
 
     expect(
@@ -261,7 +261,7 @@ describe('protected booking return', () => {
           endOdometer: 150,
           fuelLevelPercent: 101,
         })
-      ).status
+      ).status,
     ).toBe(422);
 
     expect(
@@ -270,7 +270,7 @@ describe('protected booking return', () => {
           endOdometer: 150.5,
           fuelLevelPercent: 60,
         })
-      ).status
+      ).status,
     ).toBe(422);
 
     await prisma.booking.update({
@@ -283,7 +283,7 @@ describe('protected booking return', () => {
     });
 
     expect(
-      (await returnVehicle(member)).status
+      (await returnVehicle(member)).status,
     ).toBe(409);
 
     await prisma.booking.update({
@@ -305,7 +305,7 @@ describe('protected booking return', () => {
     });
 
     expect(
-      (await returnVehicle(member)).status
+      (await returnVehicle(member)).status,
     ).toBe(409);
 
     expect(
@@ -315,7 +315,7 @@ describe('protected booking return', () => {
             id: booking.id,
           },
         })
-      ).status
+      ).status,
     ).toBe('ACTIVE');
 
     expect(
@@ -324,7 +324,7 @@ describe('protected booking return', () => {
           bookingId: booking.id,
           toStatus: 'COMPLETED',
         },
-      })
+      }),
     ).toBe(0);
   });
 
@@ -345,7 +345,7 @@ describe('protected booking return', () => {
     });
 
     expect(
-      (await returnVehicle(member)).status
+      (await returnVehicle(member)).status,
     ).toBe(409);
 
     expect(
@@ -355,7 +355,7 @@ describe('protected booking return', () => {
             id: booking.id,
           },
         })
-      ).status
+      ).status,
     ).toBe('ACTIVE');
 
     expect(
@@ -365,7 +365,7 @@ describe('protected booking return', () => {
             id: car.id,
           },
         })
-      ).status
+      ).status,
     ).toBe('busy');
   });
 
@@ -381,7 +381,7 @@ describe('protected booking return', () => {
             throw new Error('rollback');
           },
         },
-      })
+      }),
     ).rejects.toThrow('rollback');
 
     expect(
@@ -391,7 +391,7 @@ describe('protected booking return', () => {
             id: booking.id,
           },
         })
-      ).status
+      ).status,
     ).toBe('ACTIVE');
 
     const unchangedCar = await prisma.car.findUnique({
@@ -410,9 +410,9 @@ describe('protected booking return', () => {
     });
 
     expect(trip.tripStatus).toBe('active');
-    expect(trip.endTime == null).toBe(true);
-    expect(trip.endOdometer == null).toBe(true);
-    expect(trip.completedBy == null).toBe(true);
+    expect(trip.endTime === null || trip.endTime === undefined).toBe(true);
+    expect(trip.endOdometer === null || trip.endOdometer === undefined).toBe(true);
+    expect(trip.completedBy === null || trip.completedBy === undefined).toBe(true);
 
     expect(
       await prisma.bookingStatusHistory.count({
@@ -420,7 +420,7 @@ describe('protected booking return', () => {
           bookingId: booking.id,
           toStatus: 'COMPLETED',
         },
-      })
+      }),
     ).toBe(0);
 
     expect(
@@ -428,7 +428,7 @@ describe('protected booking return', () => {
         where: {
           action: 'booking.return.completed',
         },
-      })
+      }),
     ).toBe(0);
 
     expect(
@@ -437,7 +437,7 @@ describe('protected booking return', () => {
           endOdometer: 175,
           fuelLevelPercent: 50,
         })
-      ).status
+      ).status,
     ).toBe(200);
   });
 });

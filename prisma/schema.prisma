@@ -307,6 +307,7 @@ model User {
   vendorMemberships       VendorMember[]
   tripsStarted            TripHistory[]    @relation("TripStartedBy")
   tripsCompleted          TripHistory[]    @relation("TripCompletedBy")
+  settlementPayoutAttempts VendorSettlementPayoutAttempt[] @relation("PayoutAttemptInitiator")
 
   @@index([phone])
   @@index([status])
@@ -556,6 +557,7 @@ model VendorBankAccount {
 
   vendor      Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   settlements VendorSettlement[]
+  payoutAttempts VendorSettlementPayoutAttempt[]
 
   @@index([vendorId])
   @@map("vendor_bank_accounts")
@@ -1219,19 +1221,77 @@ model VendorSettlement {
   failedAt        DateTime? @map("failed_at")
   failureReason   String?   @map("failure_reason") @db.VarChar(500)
 
+  idempotencyKeyHash       String? @map("idempotency_key_hash") @db.VarChar(64)
+  requestHash              String? @map("request_hash") @db.VarChar(64)
+  requiresFinancialReview Boolean @default(false) @map("requires_financial_review")
+  financialReviewReason   String? @map("financial_review_reason") @db.VarChar(500)
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   vendor      Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   bankAccount VendorBankAccount?     @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
   items       VendorSettlementItem[]
+  payoutAttempts VendorSettlementPayoutAttempt[]
 
   @@index([vendorId])
   @@index([vendorId, status])
   @@index([periodStart, periodEnd])
   @@index([bankAccountId])
   @@index([createdAt])
+  @@unique([vendorId, idempotencyKeyHash], map: "vendor_settlements_vendor_id_idempotency_key_hash_key")
   @@map("vendor_settlements")
+}
+
+// M11 stores evidence only. Future service code must enforce immutable request
+// fields, normalized identifiers/codes and transitions; never expose the snapshot.
+enum VendorSettlementPayoutAttemptStatusEnum {
+  prepared
+  dispatching
+  unknown
+  pending
+  succeeded
+  failed
+}
+
+model VendorSettlementPayoutAttempt {
+  id                     String @id @default(uuid()) @db.VarChar(36)
+  settlementId           String @map("settlement_id") @db.VarChar(36)
+  attemptNumber          Int @map("attempt_number")
+  idempotencyKeyHash      String @map("idempotency_key_hash") @db.VarChar(64)
+  requestHash            String @map("request_hash") @db.VarChar(64)
+  provider               String @db.VarChar(100)
+  providerPayoutId        String? @map("provider_payout_id") @db.VarChar(150)
+  bankAccountId          String @map("bank_account_id") @db.VarChar(36)
+  destinationFingerprint String @map("destination_fingerprint") @db.VarChar(64)
+  destinationSnapshot    Json @map("destination_snapshot")
+  amount                 Decimal @db.Decimal(14, 2)
+  currencyCode           String @map("currency_code") @db.VarChar(3)
+  status                 VendorSettlementPayoutAttemptStatusEnum @default(prepared)
+  initiatedBy            String @map("initiated_by") @db.VarChar(36)
+  initiatedAt            DateTime @default(now()) @map("initiated_at")
+  submittedAt            DateTime? @map("submitted_at")
+  paidAt                 DateTime? @map("paid_at")
+  failedAt               DateTime? @map("failed_at")
+  failureCode            String? @map("failure_code") @db.VarChar(100)
+  lastReconciledAt        DateTime? @map("last_reconciled_at")
+  providerStatus         String? @map("provider_status") @db.VarChar(100)
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  settlement VendorSettlement @relation(fields: [settlementId], references: [id], onDelete: Restrict)
+  bankAccount VendorBankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  initiator User @relation("PayoutAttemptInitiator", fields: [initiatedBy], references: [id], onDelete: Restrict)
+
+  @@unique([settlementId, attemptNumber], map: "payout_attempt_settlement_number_key")
+  @@unique([settlementId, idempotencyKeyHash], map: "payout_attempt_settlement_idempotency_key")
+  @@unique([provider, providerPayoutId], map: "payout_attempt_provider_reference_key")
+  @@index([settlementId, status], map: "payout_attempt_settlement_status_idx")
+  @@index([provider, status], map: "payout_attempt_provider_status_idx")
+  @@index([status, lastReconciledAt], map: "payout_attempt_reconciliation_idx")
+  @@index([bankAccountId], map: "payout_attempt_bank_idx")
+  @@index([initiatedBy], map: "payout_attempt_initiator_idx")
+  @@map("vendor_settlement_payout_attempts")
 }
 
 model VendorSettlementItem {
