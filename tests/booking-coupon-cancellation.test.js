@@ -1,0 +1,337 @@
+﻿'use strict';
+
+jest.mock('../src/modules/payments/providers/razorpay', () => ({
+  createRefund: jest.fn(),
+  createOrder: jest.fn(),
+  verifyCheckoutSignature: jest.fn(),
+  verifyWebhookSignature: jest.fn(),
+  parseWebhookEvent: jest.fn(),
+}));
+
+const {
+  prisma,
+  resetStore,
+  seedUser,
+} = require('./helpers/auth');
+
+const {
+  cancelBookingForVerification: cancelBooking,
+} = require('../src/modules/bookings/service');
+
+describe('Coupon release on booking cancellation', () => {
+  beforeEach(() => {
+    resetStore();
+    jest.clearAllMocks();
+  });
+
+  async function fixture({
+    paid = false,
+    withCoupon = true,
+  } = {}) {
+    const user = await seedUser({
+      email: `coupon-cancel-${Math.random()}@example.test`,
+    });
+
+    const car = await prisma.car.create({
+      data: {
+        vendorId: 'vendor-coupon-cancel',
+        branchId: 'branch-coupon-cancel',
+        registrationNumber: `CC-${Math.random()}`,
+        brand: 'Test',
+        model: 'Coupon',
+        manufacturingYear: 2025,
+        status: 'available',
+      },
+    });
+
+    const startAt =
+      new Date(Date.now() + 86400000);
+
+    const booking =
+      await prisma.booking.create({
+        data: {
+          bookingNumber:
+            `BK-CC-${Math.random()}`,
+          userId: user.id,
+          vendorId:
+            'vendor-coupon-cancel',
+          carId: car.id,
+          startAt,
+          endAt:
+            new Date(
+              startAt.getTime() + 3600000,
+            ),
+          subtotal: 900,
+          discount:
+            withCoupon ? 100 : 0,
+          tax: 0,
+          securityDeposit: 500,
+          totalAmount: 1400,
+          currencyCode: 'INR',
+          status:
+            paid
+              ? 'CONFIRMED'
+              : 'PAYMENT_PENDING',
+          paymentStatus:
+            paid
+              ? 'succeeded'
+              : 'pending',
+          holdExpiresAt:
+            new Date(
+              Date.now() + 3600000,
+            ),
+        },
+      });
+
+    let coupon = null;
+
+    if (withCoupon) {
+      coupon =
+        await prisma.coupon.create({
+          data: {
+            code:
+              `CANCEL${Math.random()}`,
+            discountType:
+              'percentage',
+            discountValue: 10,
+            usageLimit: 10,
+            perUserLimit: 1,
+            status: 'active',
+            isDeleted: false,
+          },
+        });
+
+      await prisma.couponUsage.create({
+        data: {
+          couponId: coupon.id,
+          userId: user.id,
+          bookingId: booking.id,
+          discountAmount: 100,
+        },
+      });
+    }
+
+    if (paid) {
+      await prisma.payment.create({
+        data: {
+          bookingId: booking.id,
+          userId: user.id,
+          amount: 1400,
+          currencyCode: 'INR',
+          provider: 'razorpay',
+          providerPaymentId:
+            `pay_${booking.id}`,
+          status: 'succeeded',
+          operationalStatus: 'normal',
+        },
+      });
+    }
+
+    return {
+      user,
+      booking,
+      coupon,
+    };
+  }
+
+  it(
+    'releases coupon usage for an explicitly cancelled unpaid booking',
+    async () => {
+      const f = await fixture();
+
+      expect(
+        await prisma.couponUsage.count({
+          where: {
+            bookingId: f.booking.id,
+          },
+        }),
+      ).toBe(1);
+
+      await cancelBooking({
+        userId: f.user.id,
+        bookingId: f.booking.id,
+        idempotencyKey:
+          'coupon-unpaid-cancel',
+      });
+
+      expect(
+        await prisma.booking.findUnique({
+          where: {
+            id: f.booking.id,
+          },
+        }),
+      ).toMatchObject({
+        status: 'CANCELLED',
+        paymentStatus: 'pending',
+      });
+
+      expect(
+        await prisma.couponUsage.count({
+          where: {
+            bookingId: f.booking.id,
+          },
+        }),
+      ).toBe(0);
+    },
+  );
+
+  it(
+    'keeps cancellation replay idempotent after release',
+    async () => {
+      const f = await fixture();
+
+      const first =
+        await cancelBooking({
+          userId: f.user.id,
+          bookingId: f.booking.id,
+          idempotencyKey:
+            'coupon-replay-one',
+        });
+
+      const second =
+        await cancelBooking({
+          userId: f.user.id,
+          bookingId: f.booking.id,
+          idempotencyKey:
+            'coupon-replay-two',
+        });
+
+      expect(first.replayed).toBe(false);
+      expect(second.replayed).toBe(true);
+
+      expect(
+        await prisma.couponUsage.count({
+          where: {
+            bookingId: f.booking.id,
+          },
+        }),
+      ).toBe(0);
+
+      expect(
+        await prisma.bookingStatusHistory.count({
+          where: {
+            bookingId: f.booking.id,
+            toStatus: 'CANCELLED',
+          },
+        }),
+      ).toBe(1);
+    },
+  );
+
+  it(
+    'leaves non-coupon unpaid cancellation unchanged',
+    async () => {
+      const f = await fixture({
+        withCoupon: false,
+      });
+
+      await cancelBooking({
+        userId: f.user.id,
+        bookingId: f.booking.id,
+        idempotencyKey:
+          'no-coupon-cancel',
+      });
+
+      expect(
+        await prisma.booking.findUnique({
+          where: {
+            id: f.booking.id,
+          },
+        }),
+      ).toMatchObject({
+        status: 'CANCELLED',
+      });
+
+      expect(
+        await prisma.couponUsage.count(),
+      ).toBe(0);
+    },
+  );
+
+  it(
+    'keeps coupon usage for a paid cancellation',
+    async () => {
+      const f = await fixture({
+        paid: true,
+      });
+
+      const result =
+        await cancelBooking({
+          userId: f.user.id,
+          bookingId: f.booking.id,
+          idempotencyKey:
+            'coupon-paid-cancel',
+        });
+
+      expect(result.refund).toBeTruthy();
+
+      expect(
+        await prisma.couponUsage.count({
+          where: {
+            bookingId: f.booking.id,
+          },
+        }),
+      ).toBe(1);
+
+      expect(
+        await prisma.refund.count({
+          where: {
+            bookingId: f.booking.id,
+          },
+        }),
+      ).toBe(1);
+    },
+  );
+
+  it(
+    'rolls coupon release back with the cancellation transaction',
+    async () => {
+      const f = await fixture();
+
+      await expect(
+        cancelBooking({
+          userId: f.user.id,
+          bookingId: f.booking.id,
+          idempotencyKey:
+            'coupon-cancel-rollback',
+          testHooks: {
+            afterBookingMutation:
+              async () => {
+                throw new Error(
+                  'rollback coupon cancellation',
+                );
+              },
+          },
+        }),
+      ).rejects.toThrow(
+        'rollback coupon cancellation',
+      );
+
+      expect(
+        await prisma.booking.findUnique({
+          where: {
+            id: f.booking.id,
+          },
+        }),
+      ).toMatchObject({
+        status: 'PAYMENT_PENDING',
+      });
+
+      expect(
+        await prisma.couponUsage.count({
+          where: {
+            bookingId: f.booking.id,
+          },
+        }),
+      ).toBe(1);
+
+      expect(
+        await prisma.bookingStatusHistory.count({
+          where: {
+            bookingId: f.booking.id,
+          },
+        }),
+      ).toBe(0);
+    },
+  );
+});

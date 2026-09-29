@@ -34,32 +34,8 @@ function decimal(value) {
   return Number(value);
 }
 
-const { paise, major } = require('../pricing/tax');
-
 function money(value) {
-  return major(paise(value));
-}
-
-function percentageBasisPoints(value) {
-  const match = String(value).match(/^(\d+)(?:\.(\d{1,2}))?$/);
-
-  if (!match) {
-    throw invalidCoupon(
-      'Percentage discount must have at most two decimal places.',
-    );
-  }
-
-  const basisPoints =
-    BigInt(match[1]) * 100n +
-    BigInt((match[2] || '').padEnd(2, '0'));
-
-  if (basisPoints > 10000n) {
-    throw invalidCoupon(
-      'Percentage discount cannot exceed 100.',
-    );
-  }
-
-  return basisPoints;
+  return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 }
 
 function normalizeCoupon(coupon) {
@@ -74,40 +50,26 @@ function normalizeCoupon(coupon) {
 }
 
 function calculateDiscount(coupon, bookingAmount) {
-  const amountPaise = paise(bookingAmount);
+  const amount = money(bookingAmount);
 
-  let discountPaise;
+  let discount;
 
   if (coupon.discountType === 'percentage') {
-    const basisPoints = percentageBasisPoints(
-      coupon.discountValue,
+    discount = money(
+      (amount * decimal(coupon.discountValue)) / 100,
     );
-
-    // 10000 basis points = 100%.
-    // Add half the denominator for nearest-paise rounding.
-    discountPaise =
-      (amountPaise * basisPoints + 5000n) / 10000n;
   } else {
-    discountPaise = paise(coupon.discountValue);
+    discount = money(decimal(coupon.discountValue));
   }
 
-  if (
-    coupon.maximumDiscount !== null &&
-    coupon.maximumDiscount !== undefined
-  ) {
-    const maximumDiscountPaise =
-      paise(coupon.maximumDiscount);
-
-    if (discountPaise > maximumDiscountPaise) {
-      discountPaise = maximumDiscountPaise;
-    }
+  if (coupon.maximumDiscount !== null) {
+    discount = Math.min(
+      discount,
+      decimal(coupon.maximumDiscount),
+    );
   }
 
-  if (discountPaise > amountPaise) {
-    discountPaise = amountPaise;
-  }
-
-  return major(discountPaise);
+  return money(Math.min(discount, amount));
 }
 
 async function validateCouponForUser({

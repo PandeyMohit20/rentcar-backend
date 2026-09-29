@@ -54,7 +54,7 @@ function safeCar(car, primaryImage) {
       : null,
   };
 }
-function dto(booking, car) { return { id: booking.id, bookingNumber: booking.bookingNumber, status: booking.status, paymentStatus: booking.paymentStatus, carId: booking.carId, startAt: booking.startAt, endAt: booking.endAt, subtotal: booking.subtotal, tax: booking.tax, discount: booking.discount || 0, financialSnapshot: booking.financialSnapshot || null, securityDeposit: booking.securityDeposit, totalAmount: booking.totalAmount, currencyCode: booking.currencyCode, holdExpiresAt: booking.holdExpiresAt, createdAt: booking.createdAt, ...(car ? { car } : {}) }; }
+function dto(booking, car) { return { id: booking.id, bookingNumber: booking.bookingNumber, status: booking.status, paymentStatus: booking.paymentStatus, carId: booking.carId, startAt: booking.startAt, endAt: booking.endAt, subtotal: booking.subtotal, tax: booking.tax, financialSnapshot: booking.financialSnapshot || null, securityDeposit: booking.securityDeposit, totalAmount: booking.totalAmount, currencyCode: booking.currencyCode, holdExpiresAt: booking.holdExpiresAt, createdAt: booking.createdAt, ...(car ? { car } : {}) }; }
 async function customerCars(carIds) {
   const ids = [...new Set(carIds.filter(Boolean))];
   if (!ids.length) return new Map();
@@ -200,16 +200,6 @@ async function cancelBooking({ userId, bookingId, reason, idempotencyKey, testHo
 
     const now = new Date();
     const updated = await tx.booking.update({ where: { id: booking.id }, data: { status: 'CANCELLED', cancelledAt: now, cancellationReason: reason || null } });
-    // Explicitly cancelled unpaid bookings release their coupon claim.
-    // Paid cancellations keep CouponUsage because the coupon was financially consumed.
-    if (unpaid) {
-      await tx.couponUsage.deleteMany({
-        where: {
-          bookingId: booking.id,
-          userId: booking.userId,
-        },
-      });
-    }
     if (testHooks?.afterBookingMutation) await testHooks.afterBookingMutation({ tx, bookingId: booking.id, booking: updated });
 
     if (paid) await require('../vendors/settlementFinancialGuard').markFinancialReview(tx, booking.id, 'REFUND_CREATED');

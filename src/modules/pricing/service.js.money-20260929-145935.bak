@@ -88,8 +88,13 @@ async function createTrustedQuote({
         userId,
       });
 
-    discountAmount = validation.discountAmount;
-    rentalSubtotal = validation.discountedAmount;
+    discountAmount = money(
+      Number(validation.discountAmount),
+    );
+
+    rentalSubtotal = money(
+      Number(validation.discountedAmount),
+    );
 
     couponSnapshot = {
       id: validation.coupon.id,

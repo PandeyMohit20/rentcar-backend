@@ -1,8 +1,14 @@
-'use strict';
+﻿'use strict';
 
-/**
- * Wallet validation schemas (Zod).
- * Phase 19 placeholder. Implemented in a later phase.
- * Use: const { z } = require('zod');
- */
-module.exports = {};
+const { z } = require('zod');
+
+const transactionsQuerySchema = z
+  .object({
+    page: z.coerce.number().int().positive().optional(),
+    limit: z.coerce.number().int().positive().max(100).optional(),
+  })
+  .strict();
+
+module.exports = {
+  transactionsQuerySchema,
+};

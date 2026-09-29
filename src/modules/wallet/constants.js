@@ -1,7 +1,9 @@
-'use strict';
+﻿'use strict';
 
-/**
- * wallet module constants.
- * Phase 19 placeholder. Implemented in a later phase.
- */
-module.exports = {};
+const DEFAULT_CURRENCY = 'INR';
+const DEFAULT_STATUS = 'active';
+
+module.exports = {
+  DEFAULT_CURRENCY,
+  DEFAULT_STATUS,
+};

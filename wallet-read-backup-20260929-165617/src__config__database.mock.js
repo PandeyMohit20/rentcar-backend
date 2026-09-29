@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 /**
  * In-memory Prisma mock for tests.
@@ -301,8 +301,6 @@ function createMockPrisma() {
     booking: [],
     bookingItem: [],
     bookingStatusHistory: [],
-    wallet: [],
-    walletTransaction: [],
     coupon: [],
     couponUsage: [],
     tripHistory: [],
@@ -373,8 +371,6 @@ function createMockPrisma() {
     booking: createModel('booking', store),
     bookingItem: createModel('bookingItem', store),
     bookingStatusHistory: createModel('bookingStatusHistory', store),
-    wallet: createModel('wallet', store),
-    walletTransaction: createModel('walletTransaction', store),
     coupon: createModel('coupon', store),
     couponUsage: createModel('couponUsage', store),
     tripHistory: createModel('tripHistory', store),
@@ -470,44 +466,6 @@ function createMockPrisma() {
     return createVendorMember({ data });
   };
 
-  // WALLET PHASE 2A UNIQUE CONSTRAINT MOCK
-  // Mirrors production UNIQUE(wallet.user_id) and
-  // UNIQUE(wallet_transactions.wallet_id, idempotency_key_hash).
-  {
-    const walletCreate = prisma.wallet.create;
-    prisma.wallet.create = async ({ data }) => {
-      if (
-        data.userId !== null &&
-        data.userId !== undefined &&
-        store.wallet.some((row) => row.userId === data.userId)
-      ) {
-        const err = new Error('Unique constraint failed');
-        err.code = 'P2002';
-        err.meta = { target: ['userId'] };
-        throw err;
-      }
-      return walletCreate({ data });
-    };
-
-    const transactionCreate = prisma.walletTransaction.create;
-    prisma.walletTransaction.create = async ({ data }) => {
-      if (
-        data.idempotencyKeyHash !== null &&
-        data.idempotencyKeyHash !== undefined &&
-        store.walletTransaction.some(
-          (row) =>
-            row.walletId === data.walletId &&
-            row.idempotencyKeyHash === data.idempotencyKeyHash,
-        )
-      ) {
-        const err = new Error('Unique constraint failed');
-        err.code = 'P2002';
-        err.meta = { target: ['walletId', 'idempotencyKeyHash'] };
-        throw err;
-      }
-      return transactionCreate({ data });
-    };
-  }
   for (const model of ['vendorSettlement', 'vendorSettlementItem']) {
     const create = prisma[model].create;
     prisma[model].create = async ({ data }) => {

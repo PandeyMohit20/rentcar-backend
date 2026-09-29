@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const { Router } = require('express');
 const { env } = require('../config/env');
@@ -20,7 +20,6 @@ const { bookingsRouter } = require('../modules/bookings/routes');
 const { paymentsRouter } = require('../modules/payments/routes');
 const { analyticsRouter } = require('../modules/analytics/routes');
 const { couponRouter } = require('../modules/coupons/routes');
-const { walletRouter } = require('../modules/wallet/routes');
 const { refundsRouter } = require('../modules/refunds/routes');
 const { RefundsController } = require('../modules/refunds/controller');
 const refundSchemas = require('../modules/refunds/validator');
@@ -60,7 +59,6 @@ router.use('/bookings', bookingsRouter);
 router.use('/payments', paymentsRouter);
 router.use('/analytics', analyticsRouter);
 router.use('/coupons', couponRouter);
-router.use('/wallet', walletRouter);
 router.use('/refunds', refundsRouter);
 router.use('/invoices', invoicesRouter);
 router.use('/kyc', kycRouter);
@@ -74,6 +72,7 @@ router.get('/bookings/:bookingId/invoice', authenticate, validate({ params: invo
 // Future modules — 501 Not Implemented placeholders.
 // Business logic for these belongs to later phases.
 const futureModules = [
+  'wallet',
   'coupons',
   'reviews',
   'notifications',

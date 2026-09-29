@@ -1,0 +1,1661 @@
+﻿============================================================
+WALLET READ API - IMPLEMENTATION CONTEXT
+============================================================
+
+===== 1. ROUTES INDEX =====
+'use strict';
+
+const { Router } = require('express');
+const { env } = require('../config/env');
+const { healthRouter } = require('../health/health.routes');
+const { authRouter } = require('../modules/auth/routes');
+const { usersRouter } = require('../modules/users/routes');
+const { profilesRouter } = require('../modules/profiles/routes');
+const { addressesRouter } = require('../modules/addresses/routes');
+const { notImplementedRouter } = require('./notImplemented');
+const { rolesRouter } = require('../modules/roles/routes');
+const { vendorsRouter } = require('../modules/vendors/routes');
+const { locationsRouter } = require('../modules/locations/routes');
+const { carsRouter } = require('../modules/cars/routes');
+const { fleetRouter } = require('../modules/fleet/routes');
+const { availabilityRouter } = require('../modules/availability/routes');
+const { pricingRouter } = require('../modules/pricing/routes');
+const { billingApprovalRouter } = require('../modules/billingApproval/routes');
+const { bookingsRouter } = require('../modules/bookings/routes');
+const { paymentsRouter } = require('../modules/payments/routes');
+const { analyticsRouter } = require('../modules/analytics/routes');
+const { couponRouter } = require('../modules/coupons/routes');
+const { refundsRouter } = require('../modules/refunds/routes');
+const { RefundsController } = require('../modules/refunds/controller');
+const refundSchemas = require('../modules/refunds/validator');
+const { authenticate } = require('../middlewares/authenticate');
+const { validate } = require('../middlewares/validate');
+const { invoicesRouter } = require('../modules/invoices/routes');
+const { InvoicesController } = require('../modules/invoices/controller');
+const invoiceSchemas = require('../modules/invoices/validator');
+const { kycRouter } = require('../modules/kyc/routes');
+const { adminKycRouter } = require('../modules/adminKyc/routes');
+const {
+  adminBookingReadRouter,
+  vendorBookingReadRouter,
+} = require('../modules/bookingReads/routes');
+
+const router = Router();
+
+// Mount health routes (real implementation).
+router.use('/health', healthRouter);
+
+// Mount auth module (Phases 19-20).
+router.use('/auth', authRouter);
+
+// Mount users module (Phase 21 — user, profile, address, account management).
+router.use('/users', usersRouter);
+router.use('/profiles', profilesRouter);
+router.use('/addresses', addressesRouter);
+router.use('/roles', rolesRouter);
+router.use('/vendors', vendorsRouter);
+router.use('/locations', locationsRouter);
+router.use('/cars', carsRouter);
+router.use('/fleet', fleetRouter);
+router.use('/availability', availabilityRouter);
+router.use('/pricing', pricingRouter);
+router.use('/admin/billing-approval', billingApprovalRouter);
+router.use('/bookings', bookingsRouter);
+router.use('/payments', paymentsRouter);
+router.use('/analytics', analyticsRouter);
+router.use('/coupons', couponRouter);
+router.use('/refunds', refundsRouter);
+router.use('/invoices', invoicesRouter);
+router.use('/kyc', kycRouter);
+router.use('/admin/kyc', adminKycRouter);
+router.use('/admin/bookings', adminBookingReadRouter);
+router.use('/vendor/bookings', vendorBookingReadRouter);
+router.get('/bookings/:bookingId/refunds', authenticate, validate({ params: refundSchemas.bookingId }), RefundsController.listForBooking);
+router.get('/bookings/:bookingId/invoice/download', authenticate, validate({ params: invoiceSchemas.bookingId }), InvoicesController.download);
+router.get('/bookings/:bookingId/invoice', authenticate, validate({ params: invoiceSchemas.bookingId }), InvoicesController.getForBooking);
+
+// Future modules — 501 Not Implemented placeholders.
+// Business logic for these belongs to later phases.
+const futureModules = [
+  'wallet',
+  'coupons',
+  'reviews',
+  'notifications',
+  'support',
+  'admin',
+];
+
+for (const moduleName of futureModules) {
+  router.use(`/${moduleName}`, notImplementedRouter(moduleName));
+}
+
+module.exports = { apiRouter: router, apiPrefix: env.API_PREFIX };
+
+
+===== 2. AUTHENTICATE =====
+'use strict';
+
+const AppError = require('../errors/AppError');
+const errorCodes = require('../errors/errorCodes');
+const httpStatus = require('../constants/httpStatus');
+const { verifyAccessToken } = require('../utils/jwt');
+const { prisma } = require('../config/database');
+const { USER_STATUS } = require('../modules/auth/constants');
+
+/**
+ * Load a user's roles + permissions for `req.user`.
+ * Resolves through the database-backed RBAC (UserRole -> Role -> permissions).
+ */
+async function loadAuthContext(userId) {
+  const userRoles = await prisma.userRole.findMany({
+    where: { userId },
+    include: {
+      role: {
+        include: { permissions: { include: { permission: true } } },
+      },
+    },
+  });
+  const roles = userRoles.map((ur) => ur.role.name);
+  const permissions = [
+    ...new Set(
+      userRoles.flatMap((ur) =>
+        (ur.role.permissions || [])
+          .map((rp) => rp.permission && rp.permission.name)
+          .filter(Boolean),
+      ),
+    ),
+  ];
+  return { roles, permissions };
+}
+
+/**
+ * Authentication middleware.
+ * Reads `Authorization: Bearer <access_token>`, verifies the JWT, then
+ * validates the account status and (when present) the session against the
+ * database. On success it attaches a safe `req.user` containing:
+ *   { sub, sessionId, roles, permissions, email }
+ *
+ * The database-backed checks ensure:
+ *  - The user still exists.
+ *  - The account is ACTIVE (blocked/suspended/inactive/deleted are rejected).
+ *  - The session (if any) is not revoked and not expired.
+ */
+
+function accountStatusError(status) {
+  switch (status) {
+    case USER_STATUS.BLOCKED:
+      return new AppError(
+        'This account has been blocked.',
+        httpStatus.FORBIDDEN,
+        errorCodes.AUTH_ACCOUNT_BLOCKED,
+      );
+    case USER_STATUS.SUSPENDED:
+      return new AppError(
+        'This account has been suspended.',
+        httpStatus.FORBIDDEN,
+        errorCodes.AUTH_ACCOUNT_SUSPENDED,
+      );
+    case USER_STATUS.DELETED:
+      return new AppError(
+        'This account no longer exists.',
+        httpStatus.UNAUTHORIZED,
+        errorCodes.AUTH_ACCOUNT_DELETED,
+      );
+    case USER_STATUS.INACTIVE:
+      return new AppError(
+        'This account is inactive.',
+        httpStatus.UNAUTHORIZED,
+        errorCodes.AUTH_ACCOUNT_DISABLED,
+      );
+    case USER_STATUS.PENDING:
+      return new AppError(
+        'This account is pending verification.',
+        httpStatus.UNAUTHORIZED,
+        errorCodes.AUTH_ACCOUNT_INACTIVE,
+      );
+    default:
+      return new AppError(
+        'This account is not active.',
+        httpStatus.UNAUTHORIZED,
+        errorCodes.AUTH_ACCOUNT_DISABLED,
+      );
+  }
+}
+
+async function authenticate(req, res, next) {
+  const header = req.headers.authorization || req.headers.Authorization;
+
+  if (!header || !header.startsWith('Bearer ')) {
+    return next(
+      new AppError(
+        'Authentication required. Provide a Bearer token.',
+        httpStatus.UNAUTHORIZED,
+        errorCodes.AUTH_UNAUTHORIZED,
+      ),
+    );
+  }
+
+  const token = header.slice(7).trim();
+  if (!token) {
+    return next(
+      new AppError(
+        'Authentication required. Provide a valid token.',
+        httpStatus.UNAUTHORIZED,
+        errorCodes.AUTH_UNAUTHORIZED,
+      ),
+    );
+  }
+
+  let payload;
+  try {
+    payload = verifyAccessToken(token);
+  } catch (err) {
+    const isExpired = err.name === 'TokenExpiredError';
+    return next(
+      new AppError(
+        isExpired ? 'Token has expired.' : 'Invalid or expired token.',
+        httpStatus.UNAUTHORIZED,
+        isExpired ? errorCodes.AUTH_TOKEN_EXPIRED : errorCodes.AUTH_TOKEN_INVALID,
+      ),
+    );
+  }
+
+  try {
+    // Load the user from the database.
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+    });
+
+    if (!user || user.isDeleted) {
+      return next(
+        new AppError(
+          'Authentication required.',
+          httpStatus.UNAUTHORIZED,
+          errorCodes.AUTH_UNAUTHORIZED,
+        ),
+      );
+    }
+
+    // Account status validation — only ACTIVE users can access protected APIs.
+    if (user.status !== USER_STATUS.ACTIVE) {
+      return next(accountStatusError(user.status));
+    }
+
+    // Session validation when the token carries a sessionId.
+    if (payload.sessionId) {
+      const session = await prisma.session.findUnique({
+        where: { id: payload.sessionId },
+      });
+      if (
+        !session ||
+        session.revokedAt ||
+        (session.expiresAt && new Date(session.expiresAt) < new Date())
+      ) {
+        return next(
+          new AppError(
+            'Session is no longer valid.',
+            httpStatus.UNAUTHORIZED,
+            errorCodes.AUTH_SESSION_INVALID,
+          ),
+        );
+      }
+      // Touch lastActiveAt (no await — best effort, non-blocking).
+      prisma.session
+        .update({
+          where: { id: session.id },
+          data: { lastActiveAt: new Date() },
+        })
+        .catch(() => {});
+    }
+
+    // Resolve DB-backed roles + permissions for RBAC.
+    const authCtx = await loadAuthContext(user.id);
+
+    req.user = {
+      sub: user.id,
+      sessionId: payload.sessionId || null,
+      email: user.email,
+      roles: authCtx.roles,
+      permissions: authCtx.permissions,
+      status: user.status,
+    };
+    req.token = token;
+
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/**
+ * Token-only authentication: verifies the JWT and the user's account status,
+ * but does NOT validate session revocation. This makes idempotent operations
+ * such as logout work even after the session has been revoked.
+ */
+async function authenticateTokenOnly(req, res, next) {
+  const header = req.headers.authorization || req.headers.Authorization;
+
+  if (!header || !header.startsWith('Bearer ')) {
+    return next(
+      new AppError(
+        'Authentication required. Provide a Bearer token.',
+        httpStatus.UNAUTHORIZED,
+        errorCodes.AUTH_UNAUTHORIZED,
+      ),
+    );
+  }
+
+  const token = header.slice(7).trim();
+  if (!token) {
+    return next(
+      new AppError(
+        'Authentication required. Provide a valid token.',
+        httpStatus.UNAUTHORIZED,
+        errorCodes.AUTH_UNAUTHORIZED,
+      ),
+    );
+  }
+
+  let payload;
+  try {
+    payload = verifyAccessToken(token);
+  } catch (err) {
+    const isExpired = err.name === 'TokenExpiredError';
+    return next(
+      new AppError(
+        isExpired ? 'Token has expired.' : 'Invalid or expired token.',
+        httpStatus.UNAUTHORIZED,
+        isExpired ? errorCodes.AUTH_TOKEN_EXPIRED : errorCodes.AUTH_TOKEN_INVALID,
+      ),
+    );
+  }
+
+  try {
+    // Load the user from the database.
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+    });
+
+    if (!user || user.isDeleted) {
+      return next(
+        new AppError(
+          'Authentication required.',
+          httpStatus.UNAUTHORIZED,
+          errorCodes.AUTH_UNAUTHORIZED,
+        ),
+      );
+    }
+
+    // Only ACTIVE accounts can perform authenticated operations.
+    if (user.status !== USER_STATUS.ACTIVE) {
+      return next(accountStatusError(user.status));
+    }
+
+    req.user = {
+      sub: user.id,
+      sessionId: payload.sessionId || null,
+      email: user.email,
+      roles: [],
+      permissions: [],
+      status: user.status,
+    };
+    req.token = token;
+
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+}
+
+module.exports = { authenticate, authenticateTokenOnly };
+
+
+===== 3. PAGINATION =====
+'use strict';
+
+/**
+ * Pagination utilities.
+ * Provides safe page/limit parsing and standard metadata generation.
+ */
+
+const DEFAULT_LIMIT = 20;
+const DEFAULT_PAGE = 1;
+const MAX_LIMIT = 100;
+
+/** Parse and validate page & limit from query params. */
+function parsePagination(query = {}) {
+  const rawPage = Number(query.page);
+  const rawLimit = Number(query.limit);
+
+  const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : DEFAULT_PAGE;
+  const limit =
+    Number.isInteger(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, MAX_LIMIT) : DEFAULT_LIMIT;
+  const offset = (page - 1) * limit;
+
+  return { page, limit, offset };
+}
+
+/** Build standard pagination metadata. */
+function buildMeta({ page, limit, total, totalPages }) {
+  return {
+    page,
+    limit,
+    total,
+    totalPages,
+  };
+}
+
+/** Compute total pages from total and limit. */
+function computeTotalPages(total, limit) {
+  return total === 0 ? 0 : Math.ceil(total / limit);
+}
+
+module.exports = {
+  parsePagination,
+  buildMeta,
+  computeTotalPages,
+  DEFAULT_LIMIT,
+  DEFAULT_PAGE,
+  MAX_LIMIT,
+};
+
+
+===== 4. RESPONSE =====
+'use strict';
+
+/**
+ * Standardized API response helpers.
+ * Success:  { success, message, data, meta }
+ * Error:    { success, message, error: { code, details } }
+ */
+
+function success(res, { statusCode = 200, message = 'Request successful', data = {}, meta } = {}) {
+  const body = { success: true, message, data };
+  if (meta) body.meta = meta;
+  return res.status(statusCode).json(body);
+}
+
+function created(res, { message = 'Resource created', data = {} } = {}) {
+  return success(res, { statusCode: 201, message, data });
+}
+
+function noContent(res, { message = 'Success' } = {}) {
+  return res.status(204).json({ success: true, message, data: {} });
+}
+
+module.exports = { success, created, noContent };
+
+
+===== 5. BOOKING READ SERVICE =====
+'use strict';
+
+const AppError = require('../../errors/AppError');
+const errorCodes = require('../../errors/errorCodes');
+const httpStatus = require('../../constants/httpStatus');
+const { parsePagination, buildMeta, computeTotalPages } = require('../../utils/pagination');
+const { hasPermission, isSuperAdmin } = require('../../services/authorization.service');
+const repository = require('./repository');
+const { listDto, detailDto } = require('./dto');
+
+const notFound = () =>
+  new AppError('Booking not found.', httpStatus.NOT_FOUND, errorCodes.RESOURCE_NOT_FOUND);
+
+function buildWhere(query, vendorIds) {
+  const where = {};
+  if (vendorIds) {
+    where.vendorId = query.vendorId || { in: vendorIds };
+  } else if (query.vendorId) {
+    where.vendorId = query.vendorId;
+  }
+  if (query.userId) where.userId = query.userId;
+  if (query.carId) where.carId = query.carId;
+  if (query.bookingNumber) where.bookingNumber = query.bookingNumber;
+  else if (query.search) where.bookingNumber = { contains: query.search };
+  if (query.status) where.status = query.status;
+  if (query.paymentStatus) where.paymentStatus = query.paymentStatus;
+  if (query.startFrom || query.startTo) {
+    where.startAt = {};
+    if (query.startFrom) where.startAt.gte = new Date(query.startFrom);
+    if (query.startTo) where.startAt.lte = new Date(query.startTo);
+  }
+  return where;
+}
+
+function listOptions(query) {
+  const { page, limit, offset } = parsePagination(query);
+  return {
+    page,
+    limit,
+    offset,
+    sortBy: query.sortBy || 'createdAt',
+    sortOrder: query.sortOrder || 'desc',
+  };
+}
+
+function listResult(result, options, canPickupForVendor) {
+  return {
+    data: result.bookings.map((booking) =>
+      listDto(booking, result.related, canPickupForVendor(booking.vendorId)),
+    ),
+    meta: buildMeta({
+      page: options.page,
+      limit: options.limit,
+      total: result.total,
+      totalPages: computeTotalPages(result.total, options.limit),
+    }),
+  };
+}
+
+async function adminList(user, query) {
+  const options = listOptions(query);
+  const canOperate = hasPermission(user, 'bookings.operate');
+  const membershipIds = canOperate && !isSuperAdmin(user)
+    ? await repository.findVendorIdsForUser(user.sub)
+    : [];
+  const memberSet = new Set(membershipIds);
+  const result = await repository.list(buildWhere(query), {
+    skip: options.offset,
+    take: options.limit,
+    sortBy: options.sortBy,
+    sortOrder: options.sortOrder,
+  });
+  return listResult(
+    result,
+    options,
+    (vendorId) => canOperate && (isSuperAdmin(user) || memberSet.has(vendorId)),
+  );
+}
+
+async function vendorScope(user, vendorId) {
+  const vendorIds = await repository.findVendorIdsForUser(user.sub);
+  if (!vendorId) return vendorIds;
+  return vendorIds.includes(vendorId) ? [vendorId] : [];
+}
+
+async function vendorList(user, query) {
+  const options = listOptions(query);
+  const vendorIds = await vendorScope(user, query.vendorId);
+  if (vendorIds.length === 0) {
+    return listResult(
+      { bookings: [], total: 0, related: {} },
+      options,
+      () => false,
+    );
+  }
+  const result = await repository.list(buildWhere(query, vendorIds), {
+    skip: options.offset,
+    take: options.limit,
+    sortBy: options.sortBy,
+    sortOrder: options.sortOrder,
+  });
+  const canOperate = hasPermission(user, 'bookings.operate');
+  return listResult(result, options, () => canOperate);
+}
+
+async function adminDetail(user, bookingId) {
+  const aggregate = await repository.findAdminDetail(bookingId);
+  if (!aggregate) throw notFound();
+  const canOperate = hasPermission(user, 'bookings.operate');
+  let hasPickupScope = isSuperAdmin(user);
+  if (canOperate && !hasPickupScope) {
+    const vendorIds = await repository.findVendorIdsForUser(user.sub);
+    hasPickupScope = vendorIds.includes(aggregate.booking.vendorId);
+  }
+  return detailDto(aggregate, canOperate && hasPickupScope);
+}
+
+async function vendorDetail(user, bookingId) {
+  const vendorIds = await repository.findVendorIdsForUser(user.sub);
+  if (vendorIds.length === 0) throw notFound();
+  const aggregate = await repository.findVendorDetail(bookingId, vendorIds);
+  if (!aggregate) throw notFound();
+  return detailDto(aggregate, hasPermission(user, 'bookings.operate'));
+}
+
+module.exports = { adminList, vendorList, adminDetail, vendorDetail };
+
+
+===== 6. USERS SELF ROUTES =====
+'use strict';
+
+const { Router } = require('express');
+const { validate } = require('../../middlewares/validate');
+const { authenticate } = require('../../middlewares/authenticate');
+const { authorize } = require('../../middlewares/authorize');
+const { UsersController } = require('./controller');
+const {
+  idParamSchema,
+  listUsersSchema,
+  updateSelfSchema,
+  updateUserSchema,
+  updateProfileSchema,
+  updateStatusSchema,
+  suspendSchema,
+} = require('./validator');
+
+const router = Router();
+
+/**
+ * All user endpoints require authentication.
+ * Self-service routes only require a valid authenticated user.
+ * Admin routes additionally require the corresponding permission.
+ */
+
+// ---- Self-service ----
+router.get('/me', authenticate, UsersController.getMe);
+router.patch('/me', authenticate, validate({ body: updateSelfSchema }), UsersController.updateMe);
+router.delete('/me', authenticate, UsersController.deleteMe);
+
+router.get('/me/profile', authenticate, UsersController.getSelfProfile);
+router.patch(
+  '/me/profile',
+  authenticate,
+  validate({ body: updateProfileSchema }),
+  UsersController.updateSelfProfile,
+);
+
+router.get('/me/preferences', authenticate, UsersController.getPreferences);
+router.patch('/me/preferences', authenticate, UsersController.updatePreferences);
+
+// ---- Admin: user management ----
+router.get(
+  '/',
+  authenticate,
+  authorize('users.view'),
+  validate({ query: listUsersSchema }),
+  UsersController.listUsers,
+);
+
+router.get(
+  '/:userId',
+  authenticate,
+  authorize('users.view'),
+  validate({ params: idParamSchema }),
+  UsersController.getUser,
+);
+
+router.patch(
+  '/:userId',
+  authenticate,
+  authorize('users.update'),
+  validate({ params: idParamSchema, body: updateUserSchema }),
+  UsersController.updateUser,
+);
+
+router.patch(
+  '/:userId/status',
+  authenticate,
+  authorize('users.status.update'),
+  validate({ params: idParamSchema, body: updateStatusSchema }),
+  UsersController.updateStatus,
+);
+
+router.patch(
+  '/:userId/activate',
+  authenticate,
+  authorize('users.activate'),
+  validate({ params: idParamSchema }),
+  UsersController.activate,
+);
+
+router.patch(
+  '/:userId/deactivate',
+  authenticate,
+  authorize('users.deactivate'),
+  validate({ params: idParamSchema }),
+  UsersController.deactivate,
+);
+
+router.patch(
+  '/:userId/suspend',
+  authenticate,
+  authorize('users.suspend'),
+  validate({ params: idParamSchema, body: suspendSchema }),
+  UsersController.suspend,
+);
+
+router.patch(
+  '/:userId/block',
+  authenticate,
+  authorize('users.block'),
+  validate({ params: idParamSchema }),
+  UsersController.block,
+);
+
+router.delete(
+  '/:userId',
+  authenticate,
+  authorize('users.delete'),
+  validate({ params: idParamSchema }),
+  UsersController.deleteUser,
+);
+
+module.exports = { usersRouter: router };
+
+
+===== 7. USERS SELF CONTROLLER =====
+'use strict';
+
+const { UsersService } = require('./service');
+const { success } = require('../../utils/response');
+
+/**
+ * Users controller — thin request handlers.
+ * All business logic lives in UsersService. Controllers only translate
+ * HTTP requests/responses.
+ */
+
+const UsersController = {
+  // ---- SELF ----
+  async getMe(req, res, next) {
+    try {
+      const user = await UsersService.getSelf(req.user.sub);
+      return success(res, { message: 'Current user', data: { user } });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  async updateMe(req, res, next) {
+    try {
+      const user = await UsersService.updateSelf(req.user.sub, req.body, req);
+      return success(res, { message: 'Profile updated successfully', data: { user } });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  async deleteMe(req, res, next) {
+    try {
+      const result = await UsersService.deleteSelf(req.user.sub, req);
+      return success(res, { message: 'Account deleted successfully', data: result });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  // ---- SELF: profile ----
+  async getSelfProfile(req, res, next) {
+    try {
+      const profile = await UsersService.getSelfProfile(req.user.sub);
+      return success(res, { message: 'Profile fetched successfully', data: { profile } });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  async updateSelfProfile(req, res, next) {
+    try {
+      const profile = await UsersService.updateSelfProfile(req.user.sub, req.body, req);
+      return success(res, { message: 'Profile updated successfully', data: { profile } });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  // ---- SELF: preferences ----
+  async getPreferences(req, res, next) {
+    try {
+      const preferences = await UsersService.getPreferences(req.user.sub);
+      return success(res, { message: 'Preferences fetched successfully', data: { preferences } });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  async updatePreferences(req, res, next) {
+    try {
+      const preferences = await UsersService.updatePreferences(req.user.sub, req.body, req);
+      return success(res, { message: 'Preferences updated successfully', data: { preferences } });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  // ---- ADMIN ----
+  async listUsers(req, res, next) {
+    try {
+      const result = await UsersService.listUsers(req.query, req);
+      return success(res, {
+        message: 'Users fetched successfully',
+        data: { items: result.items },
+        meta: result.meta,
+      });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  async getUser(req, res, next) {
+    try {
+      const user = await UsersService.getUser(req.params.userId);
+      return success(res, { message: 'User details', data: { user } });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  async updateUser(req, res, next) {
+    try {
+      const user = await UsersService.updateUser(req.user.sub, req.params.userId, req.body, req);
+      return success(res, { message: 'User updated successfully', data: { user } });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  async updateStatus(req, res, next) {
+    try {
+      const user = await UsersService.updateStatus(
+        req.user.sub,
+        req.params.userId,
+        req.body.status,
+        req,
+      );
+      return success(res, { message: 'User status updated successfully', data: { user } });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  async activate(req, res, next) {
+    try {
+      const user = await UsersService.activate(req.user.sub, req.params.userId, req);
+      return success(res, { message: 'User activated successfully', data: { user } });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  async deactivate(req, res, next) {
+    try {
+      const user = await UsersService.deactivate(req.user.sub, req.params.userId, req);
+      return success(res, { message: 'User deactivated successfully', data: { user } });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  async suspend(req, res, next) {
+    try {
+      const user = await UsersService.suspend(
+        req.user.sub,
+        req.params.userId,
+        req,
+        req.body.reason,
+      );
+      return success(res, { message: 'User suspended successfully', data: { user } });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  async block(req, res, next) {
+    try {
+      const user = await UsersService.block(req.user.sub, req.params.userId, req);
+      return success(res, { message: 'User blocked successfully', data: { user } });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  async deleteUser(req, res, next) {
+    try {
+      const result = await UsersService.softDeleteUser(req.user.sub, req.params.userId, req);
+      return success(res, { message: 'User deleted successfully', data: result });
+    } catch (err) {
+      return next(err);
+    }
+  },
+};
+
+module.exports = { UsersController };
+
+
+===== 8. MOCK DB WALLET/USER RELATED SEARCH =====
+
+  src\config\database.mock.js:1:'use strict';
+  src\config\database.mock.js:2:
+  src\config\database.mock.js:3:/**
+  src\config\database.mock.js:4: * In-memory Prisma mock for tests.
+  src\config\database.mock.js:5: * Activated only when TEST_DATABASE_MOCK=true (never in production).
+  src\config\database.mock.js:6: *
+  src\config\database.mock.js:7: * Provides functional in-memory model delegates for the auth-related models
+> src\config\database.mock.js:8: * (user, profile, role, permission, userRole, session, refreshToken, otp,
+  src\config\database.mock.js:9: * auditLog, activityLog) so tests can exercise the real auth service/controller
+  src\config\database.mock.js:10: * flows without touching a real database.
+  src\config\database.mock.js:11: *
+  src\config\database.mock.js:12: * This is a lightweight stand-in for the Prisma Client generated by
+  src\config\database.mock.js:13: * rentcar-database. It supports the specific query shapes used by the auth
+  src\config\database.mock.js:14: * module (findUnique/findFirst/findMany/create/update/updateMany with the
+  src\config\database.mock.js:15: * documented `where`/`include` shapes).
+  src\config\database.mock.js:16: */
+  src\config\database.mock.js:17:
+  src\config\database.mock.js:18:const uuid = require('uuid');
+  src\config\database.mock.js:19:
+  src\config\database.mock.js:20:function clone(value) {
+  src\config\database.mock.js:21:  if (value === undefined) return undefined;
+  src\config\database.mock.js:22:  if (value instanceof Date) return new Date(value);
+  src\config\database.mock.js:23:  if (Array.isArray(value)) return value.map(clone);
+  src\config\database.mock.js:24:  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, 
+clone(item)]));
+  src\config\database.mock.js:25:  return value;
+  src\config\database.mock.js:26:}
+  src\config\database.mock.js:27:
+  src\config\database.mock.js:28:/** Deep simple equality for scalars (used by where matching). */
+  src\config\database.mock.js:29:function valuesEqual(a, b) {
+  src\config\database.mock.js:30:  const aNull = a === null || a === undefined;
+  src\config\database.mock.js:31:  const bNull = b === null || b === undefined;
+  src\config\database.mock.js:32:  // Treat null and undefined as equivalent so `where: { field: null }`
+  src\config\database.mock.js:33:  // matches records where the field is unset (undefined).
+  src\config\database.mock.js:34:  if (aNull || bNull) {
+  src\config\database.mock.js:35:    return aNull && bNull;
+  src\config\database.mock.js:36:  }
+  src\config\database.mock.js:37:  if (a instanceof Date || b instanceof Date) return new Date(a).getTime() === new Date(b).getTime();
+  src\config\database.mock.js:38:  return a === b;
+  src\config\database.mock.js:264:  };
+  src\config\database.mock.js:265:
+  src\config\database.mock.js:266:  return api;
+  src\config\database.mock.js:267:}
+  src\config\database.mock.js:268:
+  src\config\database.mock.js:269:/**
+  src\config\database.mock.js:270: * Build the full in-memory Prisma mock.
+  src\config\database.mock.js:271: */
+  src\config\database.mock.js:272:function createMockPrisma() {
+  src\config\database.mock.js:273:  const store = {
+> src\config\database.mock.js:274:    user: [],
+  src\config\database.mock.js:275:    profile: [],
+  src\config\database.mock.js:276:    address: [],
+  src\config\database.mock.js:277:    role: [],
+  src\config\database.mock.js:278:    permission: [],
+  src\config\database.mock.js:279:    rolePermission: [],
+> src\config\database.mock.js:280:    userRole: [],
+  src\config\database.mock.js:281:    session: [],
+  src\config\database.mock.js:282:    refreshToken: [],
+  src\config\database.mock.js:283:    otp: [],
+  src\config\database.mock.js:284:    auditLog: [],
+  src\config\database.mock.js:285:    activityLog: [],
+  src\config\database.mock.js:286:    vendor: [],
+  src\config\database.mock.js:287:    vendorDocument: [],
+  src\config\database.mock.js:288:    userDocument: [],
+  src\config\database.mock.js:289:    vendorMember: [],
+  src\config\database.mock.js:290:    vendorSettlement: [],
+  src\config\database.mock.js:291:    vendorSettlementItem: [],
+  src\config\database.mock.js:292:    city: [],
+  src\config\database.mock.js:293:    location: [],
+  src\config\database.mock.js:294:    branch: [],
+  src\config\database.mock.js:295:    car: [],
+  src\config\database.mock.js:296:    carImage: [],
+  src\config\database.mock.js:297:    carFeature: [],
+  src\config\database.mock.js:298:    carDocument: [],
+  src\config\database.mock.js:299:    carPricing: [],
+  src\config\database.mock.js:300:    carAvailability: [],
+  src\config\database.mock.js:301:    booking: [],
+  src\config\database.mock.js:302:    bookingItem: [],
+  src\config\database.mock.js:303:    bookingStatusHistory: [],
+  src\config\database.mock.js:304:
+  src\config\database.mock.js:305:    coupon: [],
+  src\config\database.mock.js:306:    couponUsage: [],
+  src\config\database.mock.js:307:    tripHistory: [],
+  src\config\database.mock.js:308:    tripExtension: [],
+  src\config\database.mock.js:309:    tripPhoto: [],
+  src\config\database.mock.js:310:    tripDamage: [],
+  src\config\database.mock.js:337:          store[key].push(...snapshot[key]);
+  src\config\database.mock.js:338:        });
+  src\config\database.mock.js:339:        throw err;
+  src\config\database.mock.js:340:      }
+  src\config\database.mock.js:341:    },
+  src\config\database.mock.js:342:    $store: store,
+  src\config\database.mock.js:343:
+  src\config\database.mock.js:344:    vendorSettlement: createModel('vendorSettlement', store),
+  src\config\database.mock.js:345:    vendorSettlementItem: createModel('vendorSettlementItem', store),
+  src\config\database.mock.js:346:
+> src\config\database.mock.js:347:    user: createModel('user', store),
+  src\config\database.mock.js:348:    profile: createModel('profile', store),
+  src\config\database.mock.js:349:    address: createModel('address', store),
+  src\config\database.mock.js:350:    role: createModel('role', store),
+  src\config\database.mock.js:351:    permission: createModel('permission', store),
+  src\config\database.mock.js:352:    rolePermission: createModel('rolePermission', store),
+> src\config\database.mock.js:353:    userRole: createModel('userRole', store),
+  src\config\database.mock.js:354:    session: createModel('session', store),
+  src\config\database.mock.js:355:    refreshToken: createModel('refreshToken', store),
+  src\config\database.mock.js:356:    otp: createModel('otp', store),
+  src\config\database.mock.js:357:    auditLog: createModel('auditLog', store),
+  src\config\database.mock.js:358:    activityLog: createModel('activityLog', store),
+  src\config\database.mock.js:359:    vendor: createModel('vendor', store),
+  src\config\database.mock.js:360:    vendorDocument: createModel('vendorDocument', store),
+  src\config\database.mock.js:361:    userDocument: createModel('userDocument', store),
+  src\config\database.mock.js:362:    vendorMember: createModel('vendorMember', store),
+  src\config\database.mock.js:363:    city: createModel('city', store),
+  src\config\database.mock.js:364:    location: createModel('location', store),
+  src\config\database.mock.js:365:    branch: createModel('branch', store),
+  src\config\database.mock.js:366:    car: createModel('car', store),
+  src\config\database.mock.js:367:    carImage: createModel('carImage', store),
+  src\config\database.mock.js:368:    carFeature: createModel('carFeature', store),
+  src\config\database.mock.js:369:    carDocument: createModel('carDocument', store),
+  src\config\database.mock.js:370:    carPricing: createModel('carPricing', store),
+  src\config\database.mock.js:371:    carAvailability: createModel('carAvailability', store),
+  src\config\database.mock.js:372:    booking: createModel('booking', store),
+  src\config\database.mock.js:373:    bookingItem: createModel('bookingItem', store),
+  src\config\database.mock.js:374:    bookingStatusHistory: createModel('bookingStatusHistory', store),
+  src\config\database.mock.js:375:
+  src\config\database.mock.js:376:    coupon: createModel('coupon', store),
+  src\config\database.mock.js:377:    couponUsage: createModel('couponUsage', store),
+  src\config\database.mock.js:378:    tripHistory: createModel('tripHistory', store),
+  src\config\database.mock.js:379:    tripExtension: createModel('tripExtension', store),
+  src\config\database.mock.js:380:    tripPhoto: createModel('tripPhoto', store),
+  src\config\database.mock.js:381:    tripDamage: createModel('tripDamage', store),
+  src\config\database.mock.js:382:    payment: createModel('payment', store),
+  src\config\database.mock.js:383:    paymentWebhookEvent: createModel('paymentWebhookEvent', store),
+
+
+
+
+===== 9. TEST HELPERS / AUTH PATTERNS =====
+
+  tests\admin-kyc-review.test.js:1:'use strict';
+> tests\admin-kyc-review.test.js:2:const request = require('supertest'); const { createApp } = require('../src/app'); const { prisma, resetStore, 
+seedRole, seedUser } = require('./helpers/auth'); const { signAccessToken } = require('../src/utils/jwt');
+> tests\admin-kyc-review.test.js:3:describe('admin KYC review',()=>{let 
+app,reviewer,customer,token;beforeAll(()=>{app=createApp();});beforeEach(async()=>{resetStore();await 
+seedRole('REVIEW',{permissions:['kyc.review']});reviewer=await seedUser({email:`review-${Math.random()}@test`,roles:['REVIEW']});customer=await 
+seedUser({email:`customer-${Math.random()}@test`});token=signAccessToken({sub:reviewer.id,type:'access'});await 
+prisma.profile.update({where:{userId:customer.id},data:{verificationStatus:'pending',submittedAt:new Date()}});});it('requires review permission and 
+prevents self-review',async()=>{expect((await request(app).get('/api/v1/admin/kyc/customers').set('Authorization',`Bearer 
+${signAccessToken({sub:customer.id,type:'access'})}`)).status).toBe(403);expect((await 
+request(app).post(`/api/v1/admin/kyc/customers/${reviewer.id}/reject`).set('Authorization',`Bearer 
+${token}`).send({rejectionReason:'x'})).status).toBe(409);});it('reviews pending customer documents and aggregate KYC safely',async()=>{const doc=await 
+prisma.userDocument.create({data:{userId:customer.id,documentType:'driving_license',storageKey:'review.pdf',status:'pending',expiresAt:new 
+Date('2035-01-01')}});expect((await request(app).post(`/api/v1/admin/kyc/documents/${doc.id}/verify`).set('Authorization',`Bearer 
+${token}`)).status).toBe(200);const result=await request(app).post(`/api/v1/admin/kyc/customers/${customer.id}/verify`).set('Authorization',`Bearer 
+${token}`);expect(result.status).toBe(200);expect(result.body.data).not.toHaveProperty('verifiedBy');expect((await 
+prisma.profile.findUnique({where:{userId:customer.id}})).verificationStatus).toBe('verified');expect(await 
+prisma.auditLog.count({where:{action:'kyc.customer.verified'}})).toBe(1);});it('reviews vendor evidence and blocks member self-review',async()=>{const 
+vendor=await prisma.vendor.create({data:{vendorCode:`V-${Math.random()}`,companyName:'Vendor',verificationStatus:'pending'}});const doc=await 
+prisma.vendorDocument.create({data:{vendorId:vendor.id,documentType:'gst',documentUrl:'/uploads/vendors/a.pdf',status:'pending'}});expect((await 
+request(app).post(`/api/v1/admin/kyc/vendor-documents/${doc.id}/verify`).set('Authorization',`Bearer ${token}`)).status).toBe(200);expect((await 
+request(app).post(`/api/v1/admin/kyc/vendors/${vendor.id}/verify`).set('Authorization',`Bearer ${token}`)).status).toBe(200);const own=await 
+prisma.vendor.create({data:{vendorCode:`O-${Math.random()}`,companyName:'Own',verificationStatus:'pending'}});await 
+prisma.vendorMember.create({data:{vendorId:own.id,userId:reviewer.id,isOwner:true}});expect((await 
+request(app).post(`/api/v1/admin/kyc/vendors/${own.id}/reject`).set('Authorization',`Bearer 
+${token}`).send({rejectionReason:'x'})).status).toBe(409);});});
+  tests\auth-utils.test.js:3:const jwt = require('jsonwebtoken');
+  tests\auth-utils.test.js:4:const {
+> tests\auth-utils.test.js:5:  signAccessToken,
+> tests\auth-utils.test.js:6:  verifyAccessToken,
+  tests\auth-utils.test.js:7:  signRefreshToken,
+  tests\auth-utils.test.js:8:  verifyRefreshToken,
+  tests\auth-utils.test.js:9:} = require('../src/utils/jwt');
+  tests\auth-utils.test.js:10:const { hashPassword, comparePassword } = require('../src/utils/password');
+  tests\auth-utils.test.js:11:
+  tests\auth-utils.test.js:14:
+  tests\auth-utils.test.js:15:  it('signs and verifies an access token', () => {
+> tests\auth-utils.test.js:16:    const token = signAccessToken(payload);
+> tests\auth-utils.test.js:17:    const decoded = verifyAccessToken(token);
+  tests\auth-utils.test.js:18:    expect(decoded.sub).toBe('user-123');
+  tests\auth-utils.test.js:19:    expect(decoded.email).toBe('user@example.com');
+  tests\auth-utils.test.js:20:  });
+  tests\auth-utils.test.js:21:
+  tests\auth-utils.test.js:22:  it('signs and verifies a refresh token', () => {
+  tests\auth-utils.test.js:41:
+  tests\auth-utils.test.js:42:  it('rejects an access token verified with the wrong secret', () => {
+> tests\auth-utils.test.js:43:    const token = signAccessToken(payload);
+  tests\auth-utils.test.js:44:    expect(() => jwt.verify(token, 'wrong_secret_value_12345')).toThrow();
+  tests\auth-utils.test.js:45:  });
+  tests\auth-utils.test.js:46:
+  tests\auth-utils.test.js:47:  it('rejects a tampered token', () => {
+> tests\auth-utils.test.js:48:    const token = signAccessToken(payload);
+  tests\auth-utils.test.js:49:    const tampered = `${token.slice(0, -4)}abcd`;
+> tests\auth-utils.test.js:50:    expect(() => verifyAccessToken(tampered)).toThrow();
+  tests\auth-utils.test.js:51:  });
+  tests\auth-utils.test.js:52:});
+  tests\auth-utils.test.js:53:
+  tests\auth-utils.test.js:54:describe('Password utils', () => {
+  tests\auth-utils.test.js:55:  const plaintext = 'SuperSecret123!';
+  tests\billing-approval.test.js:3:const request = require('supertest');
+  tests\billing-approval.test.js:4:const { prisma, resetStore, seedUser } = require('./helpers/auth');
+> tests\billing-approval.test.js:5:const { signAccessToken } = require('../src/utils/jwt');
+  tests\billing-approval.test.js:6:const { createApp } = require('../src/app');
+  tests\billing-approval.test.js:7:const { authorizeRole } = require('../src/middlewares/authorize');
+  tests\billing-approval.test.js:8:const {
+  tests\billing-approval.test.js:9:  review,
+  tests\billing-approval.test.js:10:  complete,
+  tests\billing-approval.test.js:150:    expect((await review(db)).readiness.blockers.map((b) => b.code)).toContain('STALE_REVIEW');
+  tests\billing-approval.test.js:151:  });
+> tests\billing-approval.test.js:152:  it('protects both routes from unauthenticated access', async () => {
+  tests\billing-approval.test.js:153:    const app = createApp();
+  tests\billing-approval.test.js:154:    expect((await request(app).get('/api/v1/admin/billing-approval')).status).toBe(401);
+  tests\billing-approval.test.js:155:    expect(
+  tests\billing-approval.test.js:156:      (await request(app).post('/api/v1/admin/billing-approval/complete').send({})).status,
+  tests\billing-approval.test.js:157:    ).toBe(401);
+  tests\billing-approval.test.js:281:});
+  tests\billing-approval.test.js:282:
+> tests\billing-approval.test.js:283:describe('Billing approval HTTP authorization using DB-backed roles (local test database)', () => {
+  tests\billing-approval.test.js:284:  beforeEach(resetStore);
+  tests\billing-approval.test.js:285:  it.each(['CUSTOMER', 'VENDOR', 'PLATFORM_ADMIN'])(
+  tests\billing-approval.test.js:286:    'denies %s on all approval endpoints',
+  tests\billing-approval.test.js:287:    async (role) => {
+  tests\billing-approval.test.js:288:      const user = await seedUser({ email: `${role}@example.test`, roles: [role] });
+> tests\billing-approval.test.js:289:      const token = signAccessToken({ sub: user.id });
+  tests\billing-approval.test.js:290:      const app = createApp();
+  tests\billing-approval.test.js:291:      for (const [method, path] of [
+  tests\billing-approval.test.js:292:        ['get', ''],
+  tests\billing-approval.test.js:293:        ['post', '/complete'],
+  tests\billing-approval.test.js:294:        ['put', '/vendors/564ebf45-1cae-4ca1-a29e-d4794733b57c/tax-profile'],
+  tests\billing-approval.test.js:296:        const agent = request(app);
+  tests\billing-approval.test.js:297:        const result = await agent[method](`/api/v1/admin/billing-approval${path}`)
+> tests\billing-approval.test.js:298:          .set('Authorization', `Bearer ${token}`)
+  tests\billing-approval.test.js:299:          .send({});
+  tests\billing-approval.test.js:300:        expect(result.status).toBe(403);
+  tests\billing-approval.test.js:301:      }
+  tests\billing-approval.test.js:302:    },
+  tests\billing-approval.test.js:303:  );
+  tests\billing-approval.test.js:311:    await prisma.car.create({ data: { ...state.cars[0], isDeleted: false } });
+  tests\billing-approval.test.js:312:    await prisma.carPricing.create({ data: state.pricing[0] });
+> tests\billing-approval.test.js:313:    const token = signAccessToken({ sub: user.id });
+  tests\billing-approval.test.js:314:    const app = createApp();
+  tests\billing-approval.test.js:315:    const response = await request(app)
+  tests\billing-approval.test.js:316:      .get('/api/v1/admin/billing-approval')
+> tests\billing-approval.test.js:317:      .set('Authorization', `Bearer ${token}`);
+  tests\billing-approval.test.js:318:    expect(response.status).toBe(200);
+  tests\billing-approval.test.js:319:    const input = { ...(await body(prisma)), reviewHash: response.body.data.reviewHash };
+  tests\billing-approval.test.js:320:    const result = await request(app)
+  tests\billing-approval.test.js:321:      .post('/api/v1/admin/billing-approval/complete')
+> tests\billing-approval.test.js:322:      .set('Authorization', `Bearer ${token}`)
+  tests\billing-approval.test.js:323:      .send(input);
+  tests\billing-approval.test.js:324:    expect(result.status).toBe(200);
+  tests\billing-approval.test.js:325:    expect(result.body.data.status).toBe('APPROVED');
+  tests\billing-approval.test.js:326:  });
+  tests\billing-approval.test.js:327:});
+  tests\booking-admin-vendor-read.test.js:5:const { createApp } = require('../src/app');
+  tests\booking-admin-vendor-read.test.js:6:const { prisma, resetStore, seedRole, seedUser } = require('./helpers/auth');
+> tests\booking-admin-vendor-read.test.js:7:const { signAccessToken } = require('../src/utils/jwt');
+  tests\booking-admin-vendor-read.test.js:8:
+> tests\booking-admin-vendor-read.test.js:9:const auth = (user) => ({ Authorization: `Bearer ${signAccessToken({ sub: user.id, type: 'access' })}` });
+  tests\booking-admin-vendor-read.test.js:10:
+  tests\booking-admin-vendor-read.test.js:11:async function createVendor(name) {
+  tests\booking-admin-vendor-read.test.js:12:  return prisma.vendor.create({
+  tests\booking-admin-vendor-read.test.js:13:    data: {
+  tests\booking-admin-vendor-read.test.js:14:      vendorCode: `V-${uuid()}`,
+  tests\booking-cancellation.test.js:1:'use strict';
+  tests\booking-cancellation.test.js:2:jest.mock('../src/modules/payments/providers/razorpay', () => ({ createRefund: jest.fn(), createOrder: jest.fn(), 
+verifyCheckoutSignature: jest.fn(), verifyWebhookSignature: jest.fn(), parseWebhookEvent: jest.fn() }));
+> tests\booking-cancellation.test.js:3:const request = require('supertest'); const { createApp } = require('../src/app'); const { prisma, resetStore, 
+seedUser } = require('./helpers/auth'); const { signAccessToken } = require('../src/utils/jwt'); const { checkCarAvailability } = 
+require('../src/modules/availability/service'); const razorpay = require('../src/modules/payments/providers/razorpay');
+  tests\booking-cancellation.test.js:4:async function fixture({ paid = false, status = paid ? 'CONFIRMED' : 'PAYMENT_PENDING', startAt = new 
+Date(Date.now() + 86400000) } = {}) { const user = await seedUser({ email: `cancel-${Math.random()}@test` }); const car = await prisma.car.create({ data: 
+{ vendorId: 'v', branchId: 'b', registrationNumber: `C-${Math.random()}`, brand: 'T', model: 'C', manufacturingYear: 2025, status: 'available' } }); 
+const booking = await prisma.booking.create({ data: { bookingNumber: `C-${Math.random()}`, userId: user.id, vendorId: 'v', carId: car.id, startAt, endAt: 
+new Date(startAt.getTime() + 3600000), subtotal: 100, totalAmount: 100, currencyCode: 'INR', status, paymentStatus: paid ? 'succeeded' : 'pending', 
+holdExpiresAt: new Date(Date.now() + 3600000) } }); if (paid) await prisma.payment.create({ data: { bookingId: booking.id, userId: user.id, amount: 100, 
+currencyCode: 'INR', provider: 'razorpay', providerPaymentId: `pay_${booking.id}`, status: 'succeeded' } }); return { user, booking }; }
+> tests\booking-cancellation.test.js:5:describe('booking cancellation', () => { let app; beforeAll(() => { app = createApp(); }); beforeEach(() => { 
+resetStore(); razorpay.createRefund.mockResolvedValue({ providerRefundId: 'rfnd_cancel', status: 'pending' }); }); const cancel = (token, id, key = 
+'cancel-key', body = {}) => request(app).post(`/api/v1/bookings/${id}/cancel`).set('Authorization', `Bearer ${token}`).set('Idempotency-Key', 
+key).send(body);
+> tests\booking-cancellation.test.js:6:it('enforces auth, ownership, and strict bodies', async () => { const f = await fixture(); expect((await 
+request(app).post(`/api/v1/bookings/${f.booking.id}/cancel`).set('Idempotency-Key', 'x').send({})).status).toBe(401); const other = await seedUser({ 
+email: `other-${Math.random()}@test` }); expect((await cancel(signAccessToken({ sub: other.id }), f.booking.id)).status).toBe(404); expect((await 
+cancel(signAccessToken({ sub: f.user.id }), f.booking.id, 'x', { amount: 1 })).status).toBe(422); });
+> tests\booking-cancellation.test.js:7:it('cancels unpaid once with audit fields and history', async () => { const f = await fixture(); const token = 
+signAccessToken({ sub: f.user.id }); expect((await cancel(token, f.booking.id, 'one', { reason: 'Changed plans' })).status).toBe(200); expect((await 
+cancel(token, f.booking.id, 'two')).status).toBe(200); const saved = await prisma.booking.findUnique({ where: { id: f.booking.id } }); 
+expect(saved).toMatchObject({ status: 'CANCELLED', cancellationReason: 'Changed plans' }); expect(saved.cancelledAt).toBeTruthy(); expect(await 
+prisma.bookingStatusHistory.count({ where: { bookingId: f.booking.id } })).toBe(1); });
+> tests\booking-cancellation.test.js:8:it('creates one paid refund and rejects non-cancellable lifecycle states', async () => { const f = await fixture({ 
+paid: true }); const token = signAccessToken({ sub: f.user.id }); await cancel(token, f.booking.id, 'paid-one'); await cancel(token, f.booking.id, 
+'paid-two'); expect(await prisma.refund.count({ where: { bookingId: f.booking.id } })).toBe(1); expect((await prisma.refund.findFirst({ where: { 
+bookingId: f.booking.id } })).amount).toBe(100); const blocked = await fixture({ status: 'ACTIVE', startAt: new Date(Date.now() + 86400000) }); 
+expect((await cancel(signAccessToken({ sub: blocked.user.id }), blocked.booking.id)).status).toBe(409); });
+> tests\booking-cancellation.test.js:9:it('releases an active temporary hold through the actual availability service', async () => { const f = await 
+fixture(); const token = signAccessToken({ sub: f.user.id }); expect((await checkCarAvailability(f.booking.carId, f.booking.startAt, 
+f.booking.endAt)).available).toBe(false); await cancel(token, f.booking.id); expect((await checkCarAvailability(f.booking.carId, f.booking.startAt, 
+f.booking.endAt)).available).toBe(true); });
+> tests\booking-cancellation.test.js:10:it('rejects exact/after-start paid cancellations and terminal states without mutations', async () => { const now 
+= new Date('2031-01-01T00:00:00.000Z'); jest.useFakeTimers().setSystemTime(now); try { const exact = await fixture({ paid: true, startAt: now }); const 
+late = await fixture({ paid: true, startAt: new Date(now.getTime() - 1) }); const completed = await fixture({ status: 'COMPLETED' }); for (const f of 
+[exact, late, completed]) { expect((await cancel(signAccessToken({ sub: f.user.id }), f.booking.id)).status).toBe(409); expect(await 
+prisma.refund.count({ where: { bookingId: f.booking.id } })).toBe(0); } } finally { jest.useRealTimers(); } }); });
+> tests\booking-cancellation.test.js:11:it('reuses an existing durable refund and keeps cancellation responses safe', async () => { const app = 
+createApp(); const f = await fixture({ paid: true }); const payment = await prisma.payment.findFirst({ where: { bookingId: f.booking.id } }); const 
+existing = await prisma.refund.create({ data: { bookingId: f.booking.id, paymentId: payment.id, amount: 100, currencyCode: 'INR', provider: 'razorpay', 
+idempotencyKey: 'persisted_refund_key', status: 'pending' } }); const response = await 
+request(app).post(`/api/v1/bookings/${f.booking.id}/cancel`).set('Authorization', `Bearer ${signAccessToken({ sub: f.user.id })}`).set('Idempotency-Key', 
+'different_key').send({}); expect(response.status).toBe(200); expect(await prisma.refund.count({ where: { bookingId: f.booking.id } })).toBe(1); 
+expect((await prisma.refund.findFirst({ where: { bookingId: f.booking.id } })).idempotencyKey).toBe(existing.idempotencyKey); 
+expect(JSON.stringify(response.body)).not.toContain('idempotencyKey'); });
+  tests\booking-coupon.test.js:8:  seedUser,
+  tests\booking-coupon.test.js:9:} = require('./helpers/auth');
+> tests\booking-coupon.test.js:10:const { signAccessToken } = require('../src/utils/jwt');
+  tests\booking-coupon.test.js:11:
+  tests\booking-coupon.test.js:12:describe('Coupon booking consumption', () => {
+  tests\booking-coupon.test.js:13:  let app;
+  tests\booking-coupon.test.js:14:  let user;
+  tests\booking-coupon.test.js:15:  let token;
+  tests\booking-coupon.test.js:32:    });
+  tests\booking-coupon.test.js:33:
+> tests\booking-coupon.test.js:34:    token = signAccessToken({
+  tests\booking-coupon.test.js:35:      sub: user.id,
+  tests\booking-coupon.test.js:36:      type: 'access',
+  tests\booking-coupon.test.js:37:    });
+  tests\booking-coupon.test.js:38:
+  tests\booking-coupon.test.js:39:    car = await prisma.car.create({
+  tests\booking-coupon.test.js:84:    const response = await request(app)
+  tests\booking-coupon.test.js:85:      .post('/api/v1/pricing/quote')
+> tests\booking-coupon.test.js:86:      .set('Authorization', `Bearer ${token}`)
+  tests\booking-coupon.test.js:87:      .send({
+  tests\booking-coupon.test.js:88:        carId: car.id,
+  tests\booking-coupon.test.js:89:        pickupDateTime: pickup,
+  tests\booking-coupon.test.js:90:        returnDateTime,
+  tests\booking-coupon.test.js:91:        ...(code ? { couponCode: code } : {}),
+  tests\booking-coupon.test.js:99:    return request(app)
+  tests\booking-coupon.test.js:100:      .post('/api/v1/bookings')
+> tests\booking-coupon.test.js:101:      .set('Authorization', `Bearer ${token}`)
+  tests\booking-coupon.test.js:102:      .set('Idempotency-Key', key)
+  tests\booking-coupon.test.js:103:      .send({ quoteToken });
+  tests\booking-coupon.test.js:104:  }
+  tests\booking-coupon.test.js:105:
+  tests\booking-coupon.test.js:106:  it('persists net rental, discount and one coupon usage atomically', async () => {
+> tests\booking-creation.test.js:1:'use strict';const request=require('supertest');const {createApp}=require('../src/app');const 
+{prisma,resetStore,seedUser}=require('./helpers/auth');const {signAccessToken}=require('../src/utils/jwt');
+> tests\booking-creation.test.js:2:describe('Transactional booking holds',()=>{let app,a,b,car;const 
+pickup='2026-10-10T10:00:00+05:30',end='2026-10-11T10:00:00+05:30';beforeAll(()=>{app=createApp();});beforeEach(async()=>{resetStore();const ua=await 
+seedUser({email:'book-a@example.com'}),ub=await 
+seedUser({email:'book-b@example.com'});a=signAccessToken({sub:ua.id,type:'access'});b=signAccessToken({sub:ub.id,type:'access'});car=await prisma.car.crea
+te({data:{vendorId:'v',branchId:'b',registrationNumber:`BOOK-${Math.random()}`,brand:'Toyota',model:'Camry',manufacturingYear:2025,status:'available',isDe
+leted:false,vin:'private-vin'}});await prisma.carImage.create({data:{carId:car.id,imageUrl:'/uploads/cars/camry-primary.png',altText:'Toyota 
+Camry',isPrimary:true,sortOrder:1}});await prisma.carImage.create({data:{carId:car.id,imageUrl:'/uploads/cars/camry-secondary.png',altText:'Toyota Camry 
+side',isPrimary:false,sortOrder:2}});await 
+prisma.carPricing.create({data:{carId:car.id,dailyPrice:1000,securityDeposit:500,currencyCode:'INR',status:'active'}});});const 
+quote=async(returnDateTime=end)=>{const r=await 
+request(app).post('/api/v1/pricing/quote').send({carId:car.id,pickupDateTime:pickup,returnDateTime});return r.body.data.quoteToken;};const 
+book=(token,key,quoteToken,body={})=>request(app).post('/api/v1/bookings').set('Authorization',`Bearer 
+${token}`).set('Idempotency-Key',key).send({quoteToken,...body});
+  tests\booking-creation.test.js:3:it('requires authentication for create and customer reads',async()=>{expect((await 
+request(app).post('/api/v1/bookings')).status).toBe(401);expect((await request(app).get('/api/v1/bookings/me')).status).toBe(401);expect((await 
+request(app).get('/api/v1/bookings/00000000-0000-4000-8000-000000000000')).status).toBe(401);});
+  tests\booking-creation.test.js:4:it('creates a payment-pending hold from a signed quote snapshot',async()=>{const r=await book(a,'key-1',await quote());
+expect(r.status).toBe(201);expect(r.body.data).toMatchObject({status:'PAYMENT_PENDING',paymentStatus:'pending',subtotal:1000,securityDeposit:500,totalAmou
+nt:1500});expect(r.body.data).not.toHaveProperty('idempotencyHash');expect(new Date(r.body.data.holdExpiresAt)>new Date()).toBe(true);expect(await 
+prisma.bookingItem.count()).toBe(1);expect(await prisma.bookingStatusHistory.count()).toBe(1);});
+  tests\booking-creation.test.js:5:it('rejects bad quote, client financial fields, and changed availability',async()=>{expect((await 
+book(a,'key-1','broken')).status).toBe(422);const token=await quote();expect((await book(a,'key-2',token,{totalAmount:1})).status).toBe(422);await 
+prisma.carAvailability.create({data:{carId:car.id,date:new Date('2026-10-10'),status:'blocked'}});expect((await 
+book(a,'key-3',token)).status).toBe(409);expect(await prisma.booking.count()).toBe(0);});
+  tests\booking-creation.test.js:6:it('replays same idempotency request without extending the hold and rejects different reuse',async()=>{const 
+alternate=await quote('2026-10-12T10:00:00+05:30');const token=await quote();const first=await book(a,'same-key',token);const replay=await book(a,'same-ke
+y',token);expect(replay.status).toBe(200);expect(replay.body.data.id).toBe(first.body.data.id);expect(replay.body.data).not.toHaveProperty('idempotencyHas
+h');expect(await prisma.booking.count()).toBe(1);expect((await book(a,'same-key',alternate)).status).toBe(409);});
+> tests\booking-creation.test.js:7:it('enforces customer ownership and returns safe car identity on list/detail',async()=>{const made=await 
+book(a,'mine',await quote());const mine=await request(app).get('/api/v1/bookings/me').set('Authorization',`Bearer ${a}`);expect(mine.body.data).toHaveLeng
+th(1);expect(mine.body.data[0].car).toEqual({id:car.id,brand:'Toyota',model:'Camry',registrationNumber:car.registrationNumber,primaryImage:{id:expect.any(
+String),imageUrl:'/uploads/cars/camry-primary.png',altText:'Toyota Camry'}});expect(JSON.stringify(mine.body.data[0])).not.toContain('private-vin');expect
+(JSON.stringify(mine.body.data[0])).not.toContain('camry-secondary');expect((await 
+request(app).get(`/api/v1/bookings/${made.body.data.id}`).set('Authorization',`Bearer ${b}`)).status).toBe(404);const detail=await 
+request(app).get(`/api/v1/bookings/${made.body.data.id}`).set('Authorization',`Bearer ${a}`);expect(detail.status).toBe(200);expect(detail.body.data.car).
+toEqual(mine.body.data[0].car);expect(detail.body.data).not.toHaveProperty('idempotencyHash');});
+  tests\booking-creation.test.js:8:it('blocks active holds but ignores expired temporary holds',async()=>{const first=await book(a,'active',await 
+quote());expect((await 
+request(app).post('/api/v1/availability/check').send({carId:car.id,pickupDateTime:pickup,returnDateTime:end})).body.data.available).toBe(false);await 
+prisma.booking.update({where:{id:first.body.data.id},data:{holdExpiresAt:new Date(Date.now()-1000)}});expect((await request(app).post('/api/v1/availabilit
+y/check').send({carId:car.id,pickupDateTime:pickup,returnDateTime:end})).body.data.available).toBe(true);expect((await book(b,'expired-ok',await 
+quote())).status).toBe(201);});
+  tests\booking-creation.test.js:9:it('rolls back booking, item, and history if item creation fails',async()=>{const 
+original=prisma.bookingItem.create;prisma.bookingItem.create=async()=>{throw new Error('forced item failure');};try{expect((await book(a,'rollback',await 
+quote())).status).toBe(500);expect(await prisma.booking.count()).toBe(0);expect(await prisma.bookingItem.count()).toBe(0);expect(await 
+prisma.bookingStatusHistory.count()).toBe(0);}finally{prisma.bookingItem.create=original;}});
+  tests\booking-creation.test.js:10:});
+  tests\booking-pickup.test.js:3:const { createApp } = require('../src/app');
+  tests\booking-pickup.test.js:4:const { prisma, resetStore, seedRole, seedUser } = require('./helpers/auth');
+> tests\booking-pickup.test.js:5:const { signAccessToken } = require('../src/utils/jwt');
+  tests\booking-pickup.test.js:6:const { pickupBooking } = require('../src/modules/bookings/service');
+  tests\booking-pickup.test.js:7:
+  tests\booking-pickup.test.js:8:describe('protected booking pickup', () => {
+  tests\booking-pickup.test.js:9:  let app; let member; let customer; let vendor; let booking; let car;
+> tests\booking-pickup.test.js:10:  const token = (user) => signAccessToken({ sub: user.id, type: 'access' });
+> tests\booking-pickup.test.js:11:  const pickup = (user, body = { startOdometer: 100, fuelLevelPercent: 75 }) => 
+request(app).post(`/api/v1/bookings/${booking.id}/pickup`).set('Authorization', `Bearer ${token(user)}`).send(body);
+  tests\booking-pickup.test.js:12:  beforeAll(() => { app = createApp(); });
+  tests\booking-pickup.test.js:13:  beforeEach(async () => { resetStore(); await seedRole('OPERATOR', { permissions: ['bookings.operate'] }); member = 
+await seedUser({ email: `op-${Math.random()}@test`, roles: ['OPERATOR'] }); customer = await seedUser({ email: `customer-${Math.random()}@test` }); 
+vendor = await prisma.vendor.create({ data: { vendorCode: `V-${Math.random()}`, companyName: 'Vendor' } }); await prisma.vendorMember.create({ data: { 
+vendorId: vendor.id, userId: member.id, isOwner: true } }); car = await prisma.car.create({ data: { vendorId: vendor.id, branchId: 'branch', 
+registrationNumber: `P-${Math.random()}`, brand: 'T', model: 'X', manufacturingYear: 2025, status: 'available', odometer: 100 } }); booking = await 
+prisma.booking.create({ data: { bookingNumber: `P-${Math.random()}`, userId: customer.id, vendorId: vendor.id, carId: car.id, startAt: new Date(), endAt: 
+new Date(Date.now() + 3600000), subtotal: 1, totalAmount: 1, currencyCode: 'INR', status: 'CONFIRMED', paymentStatus: 'succeeded' } }); });
+  tests\booking-pickup.test.js:14:  it('requires bookings.operate and vendor membership, then records an atomic pickup', async () => { expect((await 
+pickup(customer)).status).toBe(403); const outsider = await seedUser({ email: `out-${Math.random()}@test`, roles: ['OPERATOR'] }); expect((await 
+pickup(outsider)).status).toBe(404); const response = await pickup(member, { startOdometer: 120, fuelLevelPercent: 75, notes: '  ready  ' }); 
+expect(response.status).toBe(200); expect(response.body.data).toMatchObject({ bookingId: booking.id, status: 'ACTIVE', carStatus: 'busy', pickup: { 
+odometer: 120, fuelLevelPercent: 75 } }); const trip = await prisma.tripHistory.findUnique({ where: { bookingId: booking.id } }); 
+expect(trip).toMatchObject({ startOdometer: 120, startFuel: 75, startedBy: member.id, pickupNotes: 'ready', tripStatus: 'active' }); expect(await 
+prisma.bookingStatusHistory.count({ where: { bookingId: booking.id, toStatus: 'ACTIVE' } })).toBe(1); expect(await prisma.auditLog.count({ where: { 
+action: 'booking.pickup.completed' } })).toBe(1); expect((await prisma.car.findUnique({ where: { id: car.id } })).odometer).toBe(120); });
+  tests\booking-pickup.test.js:15:  it('is durable-idempotent and rejects conflicting retries', async () => { expect((await 
+pickup(member)).status).toBe(200); expect((await pickup(member)).body.data.replayed).toBe(true); expect((await pickup(member, { startOdometer: 101, 
+fuelLevelPercent: 75 })).status).toBe(409); expect(await prisma.bookingStatusHistory.count({ where: { bookingId: booking.id } })).toBe(1); expect(await 
+prisma.auditLog.count({ where: { action: 'booking.pickup.completed' } })).toBe(1); });
+  tests\booking-pickup.test.js:16:  it('validates inputs and payment/car preconditions without mutation', async () => { expect((await pickup(member, { 
+startOdometer: 99, fuelLevelPercent: 75 })).status).toBe(422); expect((await pickup(member, { startOdometer: 100, fuelLevelPercent: 101 
+})).status).toBe(422); expect((await pickup(member, { startOdometer: 100.5, fuelLevelPercent: 75 })).status).toBe(422); await prisma.booking.update({ 
+where: { id: booking.id }, data: { paymentStatus: 'pending' } }); expect((await pickup(member)).status).toBe(409); await prisma.booking.update({ where: { 
+id: booking.id }, data: { paymentStatus: 'succeeded' } }); await prisma.car.update({ where: { id: car.id }, data: { status: 'maintenance' } }); 
+expect((await pickup(member)).status).toBe(409); });
+  tests\booking-return.test.js:9:  seedUser,
+  tests\booking-return.test.js:10:} = require('./helpers/auth');
+> tests\booking-return.test.js:11:const { signAccessToken } = require('../src/utils/jwt');
+  tests\booking-return.test.js:12:const { returnBooking } = require('../src/modules/bookings/service');
+  tests\booking-return.test.js:13:
+  tests\booking-return.test.js:14:describe('protected booking return', () => {
+  tests\booking-return.test.js:15:  let app;
+  tests\booking-return.test.js:16:  let member;
+  tests\booking-return.test.js:21:
+  tests\booking-return.test.js:22:  const token = (user) =>
+> tests\booking-return.test.js:23:    signAccessToken({
+  tests\booking-return.test.js:24:      sub: user.id,
+  tests\booking-return.test.js:25:      type: 'access',
+  tests\booking-return.test.js:26:    });
+  tests\booking-return.test.js:27:
+  tests\booking-return.test.js:28:  const returnVehicle = (
+  tests\booking-return.test.js:35:    request(app)
+  tests\booking-return.test.js:36:      .post(`/api/v1/bookings/${booking.id}/return`)
+> tests\booking-return.test.js:37:      .set('Authorization', `Bearer ${token(user)}`)
+  tests\booking-return.test.js:38:      .send(body);
+  tests\booking-return.test.js:39:
+  tests\booking-return.test.js:40:  beforeAll(() => {
+  tests\booking-return.test.js:41:    app = createApp();
+  tests\booking-return.test.js:42:  });
+  tests\car-availability.test.js:1:'use strict';
+> tests\car-availability.test.js:2:const request=require('supertest');const {createApp}=require('../src/app');const 
+{prisma,resetStore,seedRole,seedUser}=require('./helpers/auth');const {signAccessToken}=require('../src/utils/jwt');
+> tests\car-availability.test.js:3:describe('Fleet car availability',()=>{let app,view,edit,car,other;const body={date:'2026-02-01',startTime:'2026-02-01T
+09:00:00.000Z',endTime:'2026-02-01T18:00:00.000Z',status:'blocked',reason:'Service'};beforeAll(()=>{app=createApp();});beforeEach(async()=>{resetStore();a
+wait seedRole('AVIEW',{permissions:['fleet.view']});await seedRole('AEDIT',{permissions:['fleet.view','fleet.update']});const a=await 
+seedUser({email:'availability-view@example.com',roles:['AVIEW']});const b=await seedUser({email:'availability-edit@example.com',roles:['AEDIT']});view=sig
+nAccessToken({sub:a.id,type:'access'});edit=signAccessToken({sub:b.id,type:'access'});car=await 
+prisma.car.create({data:{vendorId:'v',branchId:'b',registrationNumber:'AVAIL-1',brand:'T',model:'C',manufacturingYear:2024,isDeleted:false}});other=await 
+prisma.car.create({data:{vendorId:'v',branchId:'b',registrationNumber:'AVAIL-2',brand:'T',model:'C',manufacturingYear:2024,isDeleted:false}});});const 
+url=(id='')=>`/api/v1/fleet/${car.id}/availability${id?`/${id}`:''}`;
+> tests\car-availability.test.js:4:it('requires authentication and read permission',async()=>{expect((await 
+request(app).get(url())).status).toBe(401);expect((await request(app).get(url()).set('Authorization',`Bearer ${view}`)).status).toBe(200);});
+> tests\car-availability.test.js:5:it('requires update permission for mutations',async()=>{expect((await 
+request(app).post(url()).set('Authorization',`Bearer ${view}`).send(body)).status).toBe(403);const record=await 
+prisma.carAvailability.create({data:{carId:car.id,...body,date:new Date(body.date)}});for(const method of ['patch','delete'])expect((await 
+request(app)[method](url(record.id)).set('Authorization',`Bearer ${view}`).send({reason:'x'})).status).toBe(403);});
+> tests\car-availability.test.js:6:it('creates, lists, details, patches and deletes availability',async()=>{const made=await 
+request(app).post(url()).set('Authorization',`Bearer ${edit}`).send(body);expect(made.status).toBe(201);expect((await 
+request(app).get(url()).set('Authorization',`Bearer ${view}`)).body.data).toHaveLength(1);expect((await 
+request(app).get(url(made.body.data.id)).set('Authorization',`Bearer ${view}`)).status).toBe(200);expect((await 
+request(app).patch(url(made.body.data.id)).set('Authorization',`Bearer 
+${edit}`).send({reason:'Updated'})).body.data.reason).toBe('Updated');expect((await 
+request(app).delete(url(made.body.data.id)).set('Authorization',`Bearer ${edit}`)).status).toBe(200);});
+> tests\car-availability.test.js:7:it('rejects invalid date, time, status, reason, and mass assignment',async()=>{for(const data of 
+[{...body,date:'bad'},{...body,endTime:body.startTime},{...body,status:'bad'},{...body,reason:'x'.repeat(256)},{...body,carId:other.id}])expect((await 
+request(app).post(url()).set('Authorization',`Bearer ${edit}`).send(data)).status).toBe(422);});
+> tests\car-availability.test.js:8:it('filters by date range and status',async()=>{await request(app).post(url()).set('Authorization',`Bearer 
+${edit}`).send(body);await request(app).post(url()).set('Authorization',`Bearer 
+${edit}`).send({...body,date:'2026-03-01',startTime:'2026-03-01T09:00:00.000Z',endTime:'2026-03-01T18:00:00.000Z',status:'available'});expect((await 
+request(app).get(`${url()}?fromDate=2026-02-01&toDate=2026-02-28&status=blocked`).set('Authorization',`Bearer ${view}`)).body.data).toHaveLength(1);});
+> tests\car-availability.test.js:9:it('enforces one record per car/date and ownership',async()=>{const made=await 
+request(app).post(url()).set('Authorization',`Bearer ${edit}`).send(body);expect((await request(app).post(url()).set('Authorization',`Bearer 
+${edit}`).send(body)).status).toBe(409);expect((await 
+request(app).get(`/api/v1/fleet/${other.id}/availability/${made.body.data.id}`).set('Authorization',`Bearer ${view}`)).status).toBe(404);expect((await 
+request(app).get('/api/v1/fleet/not-a-uuid/availability').set('Authorization',`Bearer ${view}`)).status).toBe(422);});
+> tests\car-availability.test.js:10:it('allows a schema-supported whole-day record',async()=>{const res=await 
+request(app).post(url()).set('Authorization',`Bearer 
+${edit}`).send({date:'2026-04-01',status:'maintenance',reason:'Inspection'});expect(res.status).toBe(201);expect(res.body.data.startTime).toBeNull();});
+> tests\car-availability.test.js:11:it('returns 404 for a missing availability child record',async()=>{expect((await 
+request(app).get(url('00000000-0000-4000-8000-000000000000')).set('Authorization',`Bearer ${view}`)).status).toBe(404);});
+> tests\car-availability.test.js:12:it('prevents moving an availability record onto an occupied date',async()=>{const first=await 
+request(app).post(url()).set('Authorization',`Bearer ${edit}`).send(body);await request(app).post(url()).set('Authorization',`Bearer 
+${edit}`).send({...body,date:'2026-02-02',startTime:'2026-02-02T09:00:00.000Z',endTime:'2026-02-02T18:00:00.000Z'});expect((await 
+request(app).patch(url(first.body.data.id)).set('Authorization',`Bearer ${edit}`).send({date:'2026-02-02'})).status).toBe(409);});
+  tests\car-availability.test.js:13:});
+  tests\car-documents.test.js:1:'use strict';
+> tests\car-documents.test.js:2:const fs=require('fs');const path=require('path');const request=require('supertest');const 
+{createApp}=require('../src/app');const {prisma,resetStore,seedRole,seedUser}=require('./helpers/auth');const 
+{signAccessToken}=require('../src/utils/jwt');
+  tests\car-documents.test.js:3:const root=path.join(require('../src/config/uploads').uploadRoot,'private','cars');const bytes=Buffer.from('%PDF-1.4 
+test');
+> tests\car-documents.test.js:4:describe('Fleet private car documents',()=>{let 
+app,view,edit,car,other;beforeAll(()=>{app=createApp();});beforeEach(async()=>{resetStore();await seedRole('VIEW',{permissions:['fleet.view']});await 
+seedRole('EDIT',{permissions:['fleet.view','fleet.update']});const a=await seedUser({email:'view-doc@example.com',roles:['VIEW']});const b=await seedUser(
+{email:'edit-doc@example.com',roles:['EDIT']});view=signAccessToken({sub:a.id,type:'access'});edit=signAccessToken({sub:b.id,type:'access'});car=await pri
+sma.car.create({data:{vendorId:'v',branchId:'b',registrationNumber:'DOC-1',brand:'T',model:'C',manufacturingYear:2024,status:'available',isDeleted:false}}
+);other=await prisma.car.create({data:{vendorId:'v',branchId:'b',registrationNumber:'DOC-2',brand:'T',model:'C',manufacturingYear:2024,status:'available',
+isDeleted:false}});});afterEach(()=>{if(fs.existsSync(root))fs.readdirSync(root).forEach(f=>fs.unlinkSync(path.join(root,f)));});const 
+upload=(token,name='rc.pdf',mime='application/pdf',carId=car.id)=>request(app).post(`/api/v1/fleet/${carId}/documents`).set('Authorization',`Bearer 
+${token}`).field('documentType','RC').attach('file',bytes,{filename:name,contentType:mime});
+> tests\car-documents.test.js:5:it('protects list and upload permissions',async()=>{expect((await 
+request(app).get(`/api/v1/fleet/${car.id}/documents`)).status).toBe(401);expect((await 
+request(app).get(`/api/v1/fleet/${car.id}/documents`).set('Authorization',`Bearer ${view}`)).status).toBe(200);expect((await 
+upload(view)).status).toBe(403);});
+  tests\car-documents.test.js:6:it('uploads PDF and keeps storage private',async()=>{const r=await upload(edit);expect(r.status).toBe(201);expect(r.body.d
+ata.documentUrl).toMatch(/^\/private\/cars\//);expect(fs.existsSync(path.join(root,path.basename(r.body.data.documentUrl)))).toBe(true);expect((await 
+request(app).get(r.body.data.documentUrl)).status).not.toBe(200);});
+  tests\car-documents.test.js:7:it.each([['photo.jpg','image/jpeg'],['photo.png','image/png'],['photo.webp','image/webp']])('accepts 
+%s',async(name,mime)=>{expect((await upload(edit,name,mime)).status).toBe(201);});
+  tests\car-documents.test.js:8:it.each([['bad.svg','image/svg+xml'],['bad.html','text/html'],['bad.pdf','text/plain']])('rejects unsafe upload 
+%s',async(name,mime)=>{expect((await upload(edit,name,mime)).status).toBe(400);});
+> tests\car-documents.test.js:9:it('rejects missing file and invalid metadata',async()=>{expect((await 
+request(app).post(`/api/v1/fleet/${car.id}/documents`).set('Authorization',`Bearer ${edit}`).field('documentType','RC')).status).toBe(400);expect((await 
+request(app).post(`/api/v1/fleet/${car.id}/documents`).set('Authorization',`Bearer 
+${edit}`).attach('file',bytes,{filename:'a.pdf',contentType:'application/pdf'})).status).toBe(422);});
+> tests\car-documents.test.js:10:it('lists only documents for its car and reads safe metadata',async()=>{const a=(await upload(edit)).body.data;await 
+upload(edit,'other.pdf','application/pdf',other.id);const list=await request(app).get(`/api/v1/fleet/${car.id}/documents`).set('Authorization',`Bearer 
+${view}`);expect(list.body.data).toHaveLength(1);const detail=await 
+request(app).get(`/api/v1/fleet/${car.id}/documents/${a.id}`).set('Authorization',`Bearer 
+${view}`);expect(detail.status).toBe(200);expect(JSON.stringify(detail.body.data)).not.toMatch(/C:|Users|\/home\//);});
+> tests\car-documents.test.js:11:it('protects wrong-car detail, download, patch, and delete',async()=>{const d=(await upload(edit)).body.data;for(const 
+method of ['get','patch','delete']){const 
+req=request(app)[method](`/api/v1/fleet/${other.id}/documents/${d.id}${method==='get'?'/download':''}`).set('Authorization',`Bearer 
+${edit}`);if(method==='patch')req.send({documentType:'PUC'});expect((await req).status).toBe(404);}expect(await 
+prisma.carDocument.findUnique({where:{id:d.id}})).toBeTruthy();});
+> tests\car-documents.test.js:12:it('downloads, updates, and deletes document files',async()=>{const d=(await upload(edit)).body.data;const 
+download=await request(app).get(`/api/v1/fleet/${car.id}/documents/${d.id}/download`).set('Authorization',`Bearer 
+${view}`);expect(download.status).toBe(200);expect(download.headers['content-disposition']).toBeDefined();const changed=await 
+request(app).patch(`/api/v1/fleet/${car.id}/documents/${d.id}`).set('Authorization',`Bearer 
+${edit}`).send({documentType:'PUC',verificationStatus:'verified'});expect(changed.body.data.documentType).toBe('PUC');const 
+file=path.join(root,path.basename(d.documentUrl));expect((await 
+request(app).delete(`/api/v1/fleet/${car.id}/documents/${d.id}`).set('Authorization',`Bearer 
+${edit}`)).status).toBe(200);expect(fs.existsSync(file)).toBe(false);expect((await 
+request(app).get(`/api/v1/fleet/${car.id}/documents/${d.id}`).set('Authorization',`Bearer ${view}`)).status).toBe(404);});
+> tests\car-documents.test.js:13:it('preserves outside sentinel for malicious persisted path',async()=>{const 
+sentinel=path.join(process.cwd(),'tests','.doc-sentinel');fs.writeFileSync(sentinel,'x');const d=await 
+prisma.carDocument.create({data:{carId:car.id,documentType:'RC',documentUrl:'../../tests/.doc-sentinel'}});await 
+request(app).delete(`/api/v1/fleet/${car.id}/documents/${d.id}`).set('Authorization',`Bearer 
+${edit}`);expect(fs.existsSync(sentinel)).toBe(true);fs.unlinkSync(sentinel);});
+> tests\car-documents.test.js:14:it('rejects oversized multipart uploads without orphan files or records',async()=>{const 
+before=fs.existsSync(root)?fs.readdirSync(root):[];const big=Buffer.alloc(10*1024*1024+1024,1);const res=await 
+request(app).post(`/api/v1/fleet/${car.id}/documents`).set('Authorization',`Bearer ${edit}`).field('documentType','RC').attach('file',big,{filename:'large
+.pdf',contentType:'application/pdf'});expect(res.status).toBeGreaterThanOrEqual(400);expect(await 
+prisma.carDocument.findMany({where:{carId:car.id}})).toHaveLength(0);expect(fs.readdirSync(root)).toEqual(before);},30000);
+  tests\car-documents.test.js:15:it('cleans the uploaded file when CarDocument database creation fails',async()=>{const 
+original=prisma.carDocument.create;prisma.carDocument.create=async()=>{throw new Error('forced create failure');};try{const 
+before=fs.readdirSync(root);const res=await upload(edit);expect(res.status).toBe(500);expect(await prisma.carDocument.findMany({where:{carId:car.id}})).to
+HaveLength(0);expect(fs.readdirSync(root)).toEqual(before);expect(res.body.message).not.toMatch(/uploads|private|C:|Users/);}finally{prisma.carDocument.cr
+eate=original;}});
+  tests\car-documents.test.js:16:});
+  tests\car-images-features.test.js:6:const { createApp } = require('../src/app');
+  tests\car-images-features.test.js:7:const { prisma, resetStore, seedRole, seedUser } = require('./helpers/auth');
+> tests\car-images-features.test.js:8:const { signAccessToken } = require('../src/utils/jwt');
+  tests\car-images-features.test.js:9:
+  tests\car-images-features.test.js:10:const fixture = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
+  tests\car-images-features.test.js:11:const uploads = path.join(require('../src/config/uploads').uploadRoot, 'cars');
+  tests\car-images-features.test.js:12:const sentinel = path.join(process.cwd(), 'tests', '.car-image-sentinel.txt');
+  tests\car-images-features.test.js:13:
+  tests\car-images-features.test.js:25:    const viewer = await seedUser({ email: 'viewer@example.com', roles: ['VIEWER'] });
+  tests\car-images-features.test.js:26:    const editor = await seedUser({ email: 'editor@example.com', roles: ['EDITOR'] });
+> tests\car-images-features.test.js:27:    viewerToken = signAccessToken({ sub: viewer.id, sessionId: null, type: 'access' });
+> tests\car-images-features.test.js:28:    editorToken = signAccessToken({ sub: editor.id, sessionId: null, type: 'access' });
+  tests\car-images-features.test.js:29:    car = await prisma.car.create({ data: { vendorId: 'vendor', branchId: 'branch', registrationNumber: 'TEST-1', 
+brand: 'Test', model: 'Car', manufacturingYear: 2024, status: 'available', isDeleted: false } });
+  tests\car-images-features.test.js:30:  });
+  tests\car-images-features.test.js:31:  afterEach(() => { if (fs.existsSync(uploads)) fs.readdirSync(uploads).forEach((file) => 
+fs.unlinkSync(path.join(uploads, file))); });
+  tests\car-images-features.test.js:32:
+> tests\car-images-features.test.js:33:  const image = (token, carId = car.id, name = 'photo.jpg', type = 'image/jpeg') => 
+request(app).post(`/api/v1/fleet/${carId}/images`).set('Authorization', `Bearer ${token}`).attach('file', fixture, { filename: name, contentType: type });
+  tests\car-images-features.test.js:34:
+> tests\car-images-features.test.js:35:  it('rejects unauthenticated image upload before writing files', async () => {
+  tests\car-images-features.test.js:36:    const response = await request(app).post('/api/v1/fleet/' + car.id + '/images').attach('file', fixture, { 
+filename: 'photo.jpg', contentType: 'image/jpeg' });
+  tests\car-images-features.test.js:37:    expect(response.status).toBe(401);
+  tests\car-images-features.test.js:38:    expect(await prisma.carImage.count({ where: { carId: car.id } })).toBe(0);
+  tests\car-images-features.test.js:39:  });
+  tests\car-images-features.test.js:40:
+  tests\car-images-features.test.js:42:    const before = fs.readdirSync(uploads);
+  tests\car-images-features.test.js:43:    const response = await request(app).post('/api/v1/fleet/' + car.id + '/images')
+> tests\car-images-features.test.js:44:      .set('Authorization', 'Bearer ' + editorToken)
+  tests\car-images-features.test.js:45:      .attach('file', Buffer.alloc(10 * 1024 * 1024 + 1), { filename: 'large.jpg', contentType: 'image/jpeg' });
+  tests\car-images-features.test.js:46:    expect(response.status).toBe(413);
+  tests\car-images-features.test.js:47:    expect(response.body.error.code).toBe('LIMIT_FILE_SIZE');
+  tests\car-images-features.test.js:48:    expect(await prisma.carImage.count({ where: { carId: car.id } })).toBe(0);
+  tests\car-images-features.test.js:49:    expect(fs.readdirSync(uploads)).toEqual(before);
+  tests\car-images-features.test.js:52:  it('protects image list and returns an empty authorized list', async () => {
+  tests\car-images-features.test.js:53:    expect((await request(app).get(`/api/v1/fleet/${car.id}/images`)).status).toBe(401);
+> tests\car-images-features.test.js:54:    const response = await request(app).get(`/api/v1/fleet/${car.id}/images`).set('Authorization', `Bearer 
+${viewerToken}`);
+  tests\car-images-features.test.js:55:    expect(response.status).toBe(200); expect(response.body.data).toEqual([]);
+  tests\car-images-features.test.js:56:  });
+  tests\car-images-features.test.js:57:
+  tests\car-images-features.test.js:58:  it('uploads valid images, exposes public URLs, and makes the first one primary', async () => {
+  tests\car-images-features.test.js:59:    const response = await image(editorToken);
+  tests\car-images-features.test.js:68:    expect((await image(viewerToken)).status).toBe(403);
+  tests\car-images-features.test.js:69:    expect((await image(editorToken, car.id, 'bad.svg', 'image/svg+xml')).status).toBe(400);
+> tests\car-images-features.test.js:70:    expect((await request(app).post(`/api/v1/fleet/${car.id}/images`).set('Authorization', `Bearer 
+${editorToken}`)).status).toBe(400);
+  tests\car-images-features.test.js:71:  });
+  tests\car-images-features.test.js:72:
+  tests\car-images-features.test.js:73:  it('switches the primary image transactionally and preserves exactly one primary', async () => {
+  tests\car-images-features.test.js:74:    const first = (await image(editorToken, car.id, 'one.jpg')).body.data;
+  tests\car-images-features.test.js:75:    const second = (await image(editorToken, car.id, 'two.png', 'image/png')).body.data;
+> tests\car-images-features.test.js:76:    const changed = await 
+request(app).patch(`/api/v1/fleet/${car.id}/images/${second.id}/primary`).set('Authorization', `Bearer ${editorToken}`);
+  tests\car-images-features.test.js:77:    expect(changed.status).toBe(200);
+  tests\car-images-features.test.js:78:    const images = await prisma.carImage.findMany({ where: { carId: car.id } });
+  tests\car-images-features.test.js:79:    expect(images.filter((item) => item.isPrimary)).toHaveLength(1);
+  tests\car-images-features.test.js:80:    expect(images.find((item) => item.id === first.id).isPrimary).toBe(false);
+  tests\car-images-features.test.js:81:  });
+  tests\car-images-features.test.js:85:    const second = (await image(editorToken, car.id, 'two.webp', 'image/webp')).body.data;
+  tests\car-images-features.test.js:86:    const other = await prisma.car.create({ data: { vendorId: 'vendor', branchId: 'branch', registrationNumber: 
+'TEST-2', brand: 'Other', model: 'Car', manufacturingYear: 2024, status: 'available', isDeleted: false } });
+> tests\car-images-features.test.js:87:    expect((await request(app).delete(`/api/v1/fleet/${other.id}/images/${first.id}`).set('Authorization', `Bearer 
+${editorToken}`)).status).toBe(404);
+> tests\car-images-features.test.js:88:    expect((await request(app).delete(`/api/v1/fleet/${car.id}/images/${first.id}`).set('Authorization', `Bearer 
+${editorToken}`)).status).toBe(200);
+  tests\car-images-features.test.js:89:    expect((await prisma.carImage.findUnique({ where: { id: second.id } })).isPrimary).toBe(true);
+  tests\car-images-features.test.js:90:  });
+  tests\car-images-features.test.js:91:
+  tests\car-images-features.test.js:92:  it('implements feature CRUD, validation, permissions, and wrong-car protection', async () => {
+  tests\car-images-features.test.js:93:    expect((await request(app).get(`/api/v1/fleet/${car.id}/features`)).status).toBe(401);
+> tests\car-images-features.test.js:94:    expect((await request(app).post(`/api/v1/fleet/${car.id}/features`).set('Authorization', `Bearer 
+${viewerToken}`).send({ name: 'GPS' })).status).toBe(403);
+> tests\car-images-features.test.js:95:    expect((await request(app).post(`/api/v1/fleet/${car.id}/features`).set('Authorization', `Bearer 
+${editorToken}`).send({})).status).toBe(422);
+> tests\car-images-features.test.js:96:    const created = await request(app).post(`/api/v1/fleet/${car.id}/features`).set('Authorization', `Bearer 
+${editorToken}`).send({ name: 'GPS', iconKey: 'gps' });
+  tests\car-images-features.test.js:97:    expect(created.status).toBe(201);
+> tests\car-images-features.test.js:98:    const updated = await 
+request(app).patch(`/api/v1/fleet/${car.id}/features/${created.body.data.id}`).set('Authorization', `Bearer ${editorToken}`).send({ name: 'Navigation' });
+  tests\car-images-features.test.js:99:    expect(updated.body.data.name).toBe('Navigation');
+  tests\car-images-features.test.js:100:    const other = await prisma.car.create({ data: { vendorId: 'vendor', branchId: 'branch', registrationNumber: 
+'TEST-3', brand: 'Other', model: 'Car', manufacturingYear: 2024, status: 'available', isDeleted: false } });
+> tests\car-images-features.test.js:101:    expect((await 
+request(app).delete(`/api/v1/fleet/${other.id}/features/${created.body.data.id}`).set('Authorization', `Bearer ${editorToken}`)).status).toBe(404);
+> tests\car-images-features.test.js:102:    expect((await 
+request(app).delete(`/api/v1/fleet/${car.id}/features/${created.body.data.id}`).set('Authorization', `Bearer ${editorToken}`)).status).toBe(200);
+  tests\car-images-features.test.js:103:  });
+  tests\car-images-features.test.js:104:
+> tests\car-images-features.test.js:105:  it('returns 403 for image list without fleet.view', async () => { const user=await 
+seedUser({email:'none1@example.com',roles:[]}); const token=signAccessToken({sub:user.id,type:'access'}); expect((await 
+request(app).get(`/api/v1/fleet/${car.id}/images`).set('Authorization',`Bearer ${token}`)).status).toBe(403); });
+> tests\car-images-features.test.js:106:  it('returns 404 for images of a missing car', async () => { expect((await 
+request(app).get('/api/v1/fleet/00000000-0000-4000-8000-000000000001/images').set('Authorization',`Bearer ${viewerToken}`)).status).toBe(404); });
+> tests\car-images-features.test.js:107:  it('validates an invalid car UUID for image list', async () => { expect((await 
+request(app).get('/api/v1/fleet/invalid/images').set('Authorization',`Bearer ${viewerToken}`)).status).toBe(422); });
+  tests\car-images-features.test.js:108:  it('accepts PNG car images', async () => { expect((await 
+image(editorToken,car.id,'photo.png','image/png')).status).toBe(201); });
+  tests\car-images-features.test.js:109:  it('accepts WEBP car images', async () => { expect((await 
+image(editorToken,car.id,'photo.webp','image/webp')).status).toBe(201); });
+> tests\car-images-features.test.js:110:  it('deletes the last image without replacement failure', async () => { const item=(await 
+image(editorToken)).body.data; expect((await request(app).delete(`/api/v1/fleet/${car.id}/images/${item.id}`).set('Authorization',`Bearer 
+${editorToken}`)).status).toBe(200); expect(await prisma.carImage.findMany({where:{carId:car.id}})).toEqual([]); });
+> tests\car-images-features.test.js:111:  it('returns an empty authorized feature list', async () => { const result=await 
+request(app).get(`/api/v1/fleet/${car.id}/features`).set('Authorization',`Bearer ${viewerToken}`); expect(result.status).toBe(200); 
+expect(result.body.data).toEqual([]); });
+> tests\car-images-features.test.js:112:  it('returns 404 for features of a missing car', async () => { expect((await 
+request(app).get('/api/v1/fleet/00000000-0000-4000-8000-000000000001/features').set('Authorization',`Bearer ${viewerToken}`)).status).toBe(404); });
+> tests\car-images-features.test.js:113:  it('validates invalid feature UUID input', async () => { expect((await 
+request(app).patch(`/api/v1/fleet/${car.id}/features/nope`).set('Authorization',`Bearer ${editorToken}`).send({name:'GPS'})).status).toBe(422); });
+  tests\car-images-features.test.js:114:
+  tests\car-images-features.test.js:115:  it('returns public-safe images and features in the customer car detail DTO', async () => {
+  tests\car-images-features.test.js:116:    await prisma.carImage.create({ data: { carId: car.id, imageUrl: '/uploads/cars/primary.jpg', isPrimary: true 
+} });
+  tests\car-images-features.test.js:117:    await prisma.carImage.create({ data: { carId: car.id, imageUrl: '/uploads/cars/second.png', isPrimary: false 
+} });
+  tests\car-images-features.test.js:118:    await prisma.carFeature.create({ data: { carId: car.id, name: 'GPS', iconKey: 'gps' } });
+  tests\car-images-features.test.js:131:    fs.writeFileSync(sentinel, 'protected');
+  tests\car-images-features.test.js:132:    const malicious = await prisma.carImage.create({ data: { carId: car.id, imageUrl: 
+'/uploads/cars/../../tests/.car-image-sentinel.txt', isPrimary: false } });
+> tests\car-images-features.test.js:133:    const response = await 
+request(app).delete(`/api/v1/fleet/${car.id}/images/${malicious.id}`).set('Authorization', `Bearer ${editorToken}`);
+  tests\car-images-features.test.js:134:    expect(response.status).toBe(200);
+  tests\car-images-features.test.js:135:    expect(fs.existsSync(sentinel)).toBe(true);
+  tests\car-images-features.test.js:136:    fs.unlinkSync(sentinel);
+  tests\car-images-features.test.js:137:  });
+  tests\car-images-features.test.js:138:
+  tests\car-images-features.test.js:140:    fs.writeFileSync(sentinel, 'protected');
+  tests\car-images-features.test.js:141:    const malicious = await prisma.carImage.create({ data: { carId: car.id, imageUrl: 
+'..\\tests\\.car-image-sentinel.txt', isPrimary: false } });
+> tests\car-images-features.test.js:142:    await request(app).delete(`/api/v1/fleet/${car.id}/images/${malicious.id}`).set('Authorization', `Bearer 
+${editorToken}`);
+  tests\car-images-features.test.js:143:    expect(fs.existsSync(sentinel)).toBe(true);
+  tests\car-images-features.test.js:144:    fs.unlinkSync(sentinel);
+  tests\car-images-features.test.js:145:  });
+  tests\car-images-features.test.js:146:});
+  tests\car-pricing.test.js:1:'use strict';
+> tests\car-pricing.test.js:2:const request=require('supertest');const {createApp}=require('../src/app');const 
+{prisma,resetStore,seedRole,seedUser}=require('./helpers/auth');const {signAccessToken}=require('../src/utils/jwt');
+> tests\car-pricing.test.js:3:describe('Fleet car pricing',()=>{let app,view,edit,car,other;const body={dailyPrice:1000,hourlyPrice:100,currencyCode:'INR'
+,effectiveFrom:'2026-01-01T00:00:00.000Z',status:'active'};beforeAll(()=>{app=createApp();});beforeEach(async()=>{resetStore();await 
+seedRole('PVIEW',{permissions:['fleet.view']});await seedRole('PEDIT',{permissions:['fleet.view','fleet.update']});const a=await 
+seedUser({email:'price-view@example.com',roles:['PVIEW']});const b=await seedUser({email:'price-edit@example.com',roles:['PEDIT']});view=signAccessToken({
+sub:a.id,type:'access'});edit=signAccessToken({sub:b.id,type:'access'});car=await 
+prisma.car.create({data:{vendorId:'v',branchId:'b',registrationNumber:'PRICE-1',brand:'T',model:'C',manufacturingYear:2024,isDeleted:false}});other=await 
+prisma.car.create({data:{vendorId:'v',branchId:'b',registrationNumber:'PRICE-2',brand:'T',model:'C',manufacturingYear:2024,isDeleted:false}});});const 
+url=(id='')=>`/api/v1/fleet/${car.id}/pricing${id?`/${id}`:''}`;
+> tests\car-pricing.test.js:4:it('requires authentication and read permission',async()=>{expect((await 
+request(app).get(url())).status).toBe(401);expect((await request(app).get(url()).set('Authorization',`Bearer ${view}`)).status).toBe(200);});
+> tests\car-pricing.test.js:5:it('requires update permission for mutations',async()=>{expect((await request(app).post(url()).set('Authorization',`Bearer 
+${view}`).send(body)).status).toBe(403);const record=await prisma.carPricing.create({data:{carId:car.id,...body}});for(const method of 
+['patch','delete'])expect((await request(app)[method](url(record.id)).set('Authorization',`Bearer ${view}`).send({dailyPrice:2})).status).toBe(403);});
+> tests\car-pricing.test.js:6:it('creates, lists, details, patches and deletes pricing',async()=>{const made=await 
+request(app).post(url()).set('Authorization',`Bearer ${edit}`).send(body);expect(made.status).toBe(201);expect((await 
+request(app).get(url()).set('Authorization',`Bearer ${view}`)).body.data).toHaveLength(1);expect((await 
+request(app).get(url(made.body.data.id)).set('Authorization',`Bearer ${view}`)).status).toBe(200);expect((await 
+request(app).patch(url(made.body.data.id)).set('Authorization',`Bearer 
+${edit}`).send({dailyPrice:1200,status:'inactive'})).body.data.dailyPrice).toBe(1200);expect((await 
+request(app).delete(url(made.body.data.id)).set('Authorization',`Bearer ${edit}`)).status).toBe(200);expect((await 
+request(app).get(url(made.body.data.id)).set('Authorization',`Bearer ${view}`)).status).toBe(404);});
+> tests\car-pricing.test.js:7:it('rejects invalid rate, currency, dates, status, and mass assignment',async()=>{for(const data of [{...body,dailyPrice:-1}
+,{...body,dailyPrice:'NaN'},{...body,currencyCode:'inr'},{...body,effectiveFrom:'not-date'},{...body,effectiveTo:'2025-01-01T00:00:00.000Z'},{...body,stat
+us:'bad'},{...body,carId:other.id}])expect((await request(app).post(url()).set('Authorization',`Bearer ${edit}`).send(data)).status).toBe(422);});
+> tests\car-pricing.test.js:8:it('returns 404 for missing, invalid, and wrong-car pricing',async()=>{expect((await 
+request(app).get('/api/v1/fleet/not-a-uuid/pricing').set('Authorization',`Bearer ${view}`)).status).toBe(422);expect((await 
+request(app).get('/api/v1/fleet/00000000-0000-4000-8000-000000000000/pricing').set('Authorization',`Bearer ${view}`)).status).toBe(404);const 
+record=await prisma.carPricing.create({data:{carId:car.id,...body}});expect((await 
+request(app).get(`/api/v1/fleet/${other.id}/pricing/${record.id}`).set('Authorization',`Bearer ${view}`)).status).toBe(404);});
+> tests\car-pricing.test.js:9:it('filters pricing by status and deliberately permits overlapping records',async()=>{await 
+prisma.carPricing.create({data:{carId:car.id,...body,status:'active'}});await 
+prisma.carPricing.create({data:{carId:car.id,...body,dailyPrice:1100,status:'inactive',effectiveFrom:'2026-01-15T00:00:00.000Z'}});expect((await 
+request(app).get(`${url()}?status=active`).set('Authorization',`Bearer ${view}`)).body.data).toHaveLength(1);expect((await 
+request(app).post(url()).set('Authorization',`Bearer 
+${edit}`).send({...body,dailyPrice:1300,effectiveFrom:'2026-01-10T00:00:00.000Z'})).status).toBe(201);});
+> tests\car-pricing.test.js:10:it('paginates pricing records with standard metadata',async()=>{await request(app).post(url()).set('Authorization',`Bearer 
+${edit}`).send(body);await request(app).post(url()).set('Authorization',`Bearer 
+${edit}`).send({...body,dailyPrice:1100,effectiveFrom:'2026-02-01T00:00:00.000Z'});const res=await 
+request(app).get(`${url()}?page=2&limit=1`).set('Authorization',`Bearer 
+${view}`);expect(res.body.data).toHaveLength(1);expect(res.body.meta).toMatchObject({page:2,limit:1,total:2,totalPages:2});});
+> tests\car-pricing.test.js:11:it('returns 404 for a missing pricing child record',async()=>{expect((await 
+request(app).get(url('00000000-0000-4000-8000-000000000000')).set('Authorization',`Bearer ${view}`)).status).toBe(404);});
+> tests\car-pricing.test.js:12:it('validates date ranges on pricing updates',async()=>{const made=await 
+request(app).post(url()).set('Authorization',`Bearer ${edit}`).send(body);expect((await 
+request(app).patch(url(made.body.data.id)).set('Authorization',`Bearer 
+${edit}`).send({effectiveFrom:'2027-01-02T00:00:00.000Z',effectiveTo:'2027-01-01T00:00:00.000Z'})).status).toBe(422);});
+  tests\car-pricing.test.js:13:});
+  tests\cors-idempotency.test.js:30:        .set(
+  tests\cors-idempotency.test.js:31:          'Access-Control-Request-Headers',
+> tests\cors-idempotency.test.js:32:          'authorization,content-type,idempotency-key',
+  tests\cors-idempotency.test.js:33:        );
+  tests\cors-idempotency.test.js:34:
+  tests\cors-idempotency.test.js:35:      expect(response.status).toBe(204);
+  tests\cors-idempotency.test.js:36:      expect(response.headers['access-control-allow-origin']).toBe(origin);
+  tests\cors-idempotency.test.js:37:      expect(response.headers['access-control-allow-credentials']).toBe('true');
+  tests\cors-idempotency.test.js:38:      expect(parseAllowedHeaders(response)).toEqual(
+  tests\cors-idempotency.test.js:39:        expect.arrayContaining([
+> tests\cors-idempotency.test.js:40:          'authorization',
+  tests\cors-idempotency.test.js:41:          'content-type',
+  tests\cors-idempotency.test.js:42:          'x-request-id',
+  tests\cors-idempotency.test.js:43:          'idempotency-key',
+  tests\cors-idempotency.test.js:44:        ]),
+  tests\cors-idempotency.test.js:45:      );
+  tests\cors-idempotency.test.js:52:      .set('Origin', origin)
+  tests\cors-idempotency.test.js:53:      .set('Access-Control-Request-Method', 'POST')
+> tests\cors-idempotency.test.js:54:      .set('Access-Control-Request-Headers', 'authorization,content-type,x-arbitrary-header');
+  tests\cors-idempotency.test.js:55:
+  tests\cors-idempotency.test.js:56:    expect(response.status).toBe(204);
+  tests\cors-idempotency.test.js:57:    expect(parseAllowedHeaders(response)).not.toContain('x-arbitrary-header');
+  tests\cors-idempotency.test.js:58:  });
+  tests\cors-idempotency.test.js:59:});
+
+
+
+
+===== 10. CURRENT STATUS =====
+ M prisma/schema.prisma  M src/config/database.mock.js  M src/modules/bookings/service.js  M src/modules/coupons/service.js  M src/modules/pricing/service.js  M tests/booking-coupon.test.js ?? WALLET-READ-API-INSPECTION.txt ?? prisma/migrations/20260808102136_initial_schema/ ?? prisma/migrations/20260808105511_hardening/ ?? prisma/migrations/20260929155504_add_wallet_transaction_idempotency/ ?? src/config/database.mock.js.coupon-delete-many-20260929-144401.bak ?? src/modules/bookings/service.js.coupon-20260929-135118.bak ?? src/modules/bookings/service.js.coupon-cancel-20260929-144046.bak ?? src/modules/bookings/service.js.coupon-contract-20260929-141935.bak ?? src/modules/bookings/service.js.coupon-release-20260929-144150.bak ?? src/modules/bookings/service.js.dto-discount-20260929-142615.bak ?? src/modules/coupons/service.js.money-20260929-145935.bak ?? src/modules/coupons/service.js.precision-20260929-150040.bak ?? src/modules/pricing/service.js.money-20260929-145935.bak ?? src/modules/pricing/service.js.precision-20260929-150040.bak ?? tests/booking-coupon-cancellation.test.js ?? tests/booking-coupon-cancellation.test.js.internal-cancel-20260929-144401.bak ?? tests/booking-coupon.test.js.coupon-contract-20260929-141935.bak ?? tests/coupon-money-precision.test.js
+
+============================================================
+END
+============================================================

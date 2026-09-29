@@ -28,8 +28,8 @@ function fingerprint(userId, quote) {
         originalRentalSubtotal:
           quote.originalRentalSubtotal ?? quote.rentalSubtotal,
         rentalSubtotal: quote.rentalSubtotal,
-        discountAmount: quote.discount || 0,
-        couponSnapshot: quote.coupon || null,
+        discountAmount: quote.discountAmount || 0,
+        couponSnapshot: quote.couponSnapshot || null,
         securityDeposit: quote.securityDeposit,
         payableAmount: quote.payableAmount,
         currencyCode: quote.currencyCode,
@@ -54,7 +54,7 @@ function safeCar(car, primaryImage) {
       : null,
   };
 }
-function dto(booking, car) { return { id: booking.id, bookingNumber: booking.bookingNumber, status: booking.status, paymentStatus: booking.paymentStatus, carId: booking.carId, startAt: booking.startAt, endAt: booking.endAt, subtotal: booking.subtotal, tax: booking.tax, discount: booking.discount || 0, financialSnapshot: booking.financialSnapshot || null, securityDeposit: booking.securityDeposit, totalAmount: booking.totalAmount, currencyCode: booking.currencyCode, holdExpiresAt: booking.holdExpiresAt, createdAt: booking.createdAt, ...(car ? { car } : {}) }; }
+function dto(booking, car) { return { id: booking.id, bookingNumber: booking.bookingNumber, status: booking.status, paymentStatus: booking.paymentStatus, carId: booking.carId, startAt: booking.startAt, endAt: booking.endAt, subtotal: booking.subtotal, tax: booking.tax, financialSnapshot: booking.financialSnapshot || null, securityDeposit: booking.securityDeposit, totalAmount: booking.totalAmount, currencyCode: booking.currencyCode, holdExpiresAt: booking.holdExpiresAt, createdAt: booking.createdAt, ...(car ? { car } : {}) }; }
 async function customerCars(carIds) {
   const ids = [...new Set(carIds.filter(Boolean))];
   if (!ids.length) return new Map();
@@ -81,7 +81,7 @@ async function createBooking({ userId, quoteToken, idempotencyKey }) { const quo
 
     let couponValidation = null;
 
-    if (quote.coupon?.id) {
+    if (quote.couponSnapshot?.id) {
       /*
        * Serialize coupon consumption.
        *
@@ -90,19 +90,19 @@ async function createBooking({ userId, quoteToken, idempotencyKey }) { const quo
        */
       if (tx.$queryRaw) {
         await tx.$queryRaw(
-          Prisma.sql`SELECT id FROM coupons WHERE id = ${quote.coupon.id} FOR UPDATE`,
+          Prisma.sql`SELECT id FROM coupons WHERE id = ${quote.couponSnapshot.id} FOR UPDATE`,
         );
       }
 
       couponValidation = await validateCouponForUser({
-        code: quote.coupon.code,
+        code: quote.couponSnapshot.code,
         bookingAmount:
           quote.originalRentalSubtotal ?? quote.rentalSubtotal,
         userId,
         db: tx,
       });
 
-      const expectedDiscount = paise(quote.discount || 0);
+      const expectedDiscount = paise(quote.discountAmount || 0);
       const actualDiscount = paise(
         couponValidation.discountAmount,
       );
@@ -112,8 +112,8 @@ async function createBooking({ userId, quoteToken, idempotencyKey }) { const quo
       );
 
       if (
-        couponValidation.coupon.id !== quote.coupon.id ||
-        couponValidation.coupon.code !== quote.coupon.code ||
+        couponValidation.coupon.id !== quote.couponSnapshot.id ||
+        couponValidation.coupon.code !== quote.couponSnapshot.code ||
         actualDiscount !== expectedDiscount ||
         actualNetRental !== expectedNetRental
       ) {
@@ -122,7 +122,7 @@ async function createBooking({ userId, quoteToken, idempotencyKey }) { const quo
         );
       }
     } else if (
-      paise(quote.discount || 0) !== 0n
+      paise(quote.discountAmount || 0) !== 0n
     ) {
       throw conflict(
         'Discount quote is invalid. Request a fresh quote.',
@@ -134,7 +134,7 @@ const vendorCommissionPaise =
   (commissionBasePaise * commissionRateBps + 5000n) / 10000n;
 const vendorCommission = Number(vendorCommissionPaise) / 100;
 
-const holdExpiresAt = new Date(Date.now() + env.BOOKING_HOLD_TTL_MINUTES * 60000); const created = await tx.booking.create({ data: { bookingNumber: `BK-${crypto.randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase()}`, userId, vendorId: availability.car.vendorId, carId: quote.carId, startAt: new Date(quote.pickupDateTime), endAt: new Date(quote.returnDateTime), subtotal: quote.rentalSubtotal, tax: quote.financialSnapshot?.tax.totalTax || 0, financialSnapshot: quote.financialSnapshot || undefined, billingSnapshot, discount: quote.discount || 0, securityDeposit: quote.securityDeposit, totalAmount: quote.payableAmount, vendorCommissionRate: commissionRate, vendorCommision: vendorCommission, currencyCode: quote.currencyCode, status: 'PAYMENT_PENDING', paymentStatus: 'pending', holdExpiresAt, idempotencyKey, idempotencyHash: hash } }); if (couponValidation) {
+const holdExpiresAt = new Date(Date.now() + env.BOOKING_HOLD_TTL_MINUTES * 60000); const created = await tx.booking.create({ data: { bookingNumber: `BK-${crypto.randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase()}`, userId, vendorId: availability.car.vendorId, carId: quote.carId, startAt: new Date(quote.pickupDateTime), endAt: new Date(quote.returnDateTime), subtotal: quote.rentalSubtotal, tax: quote.financialSnapshot?.tax.totalTax || 0, financialSnapshot: quote.financialSnapshot || undefined, billingSnapshot, discount: quote.discountAmount || 0, securityDeposit: quote.securityDeposit, totalAmount: quote.payableAmount, vendorCommissionRate: commissionRate, vendorCommision: vendorCommission, currencyCode: quote.currencyCode, status: 'PAYMENT_PENDING', paymentStatus: 'pending', holdExpiresAt, idempotencyKey, idempotencyHash: hash } }); if (couponValidation) {
       await tx.couponUsage.create({
         data: {
           couponId: couponValidation.coupon.id,
@@ -200,16 +200,6 @@ async function cancelBooking({ userId, bookingId, reason, idempotencyKey, testHo
 
     const now = new Date();
     const updated = await tx.booking.update({ where: { id: booking.id }, data: { status: 'CANCELLED', cancelledAt: now, cancellationReason: reason || null } });
-    // Explicitly cancelled unpaid bookings release their coupon claim.
-    // Paid cancellations keep CouponUsage because the coupon was financially consumed.
-    if (unpaid) {
-      await tx.couponUsage.deleteMany({
-        where: {
-          bookingId: booking.id,
-          userId: booking.userId,
-        },
-      });
-    }
     if (testHooks?.afterBookingMutation) await testHooks.afterBookingMutation({ tx, bookingId: booking.id, booking: updated });
 
     if (paid) await require('../vendors/settlementFinancialGuard').markFinancialReview(tx, booking.id, 'REFUND_CREATED');

@@ -1343,12 +1343,15 @@ model WalletTransaction {
   balanceBefore Decimal                   @map("balance_before") @db.Decimal(14, 2)
   balanceAfter  Decimal                   @map("balance_after") @db.Decimal(14, 2)
   referenceType WalletReferenceTypeEnum   @map("reference_type")
-  referenceId   String?                   @map("reference_id") @db.VarChar(36)
+  referenceId        String?                   @map("reference_id") @db.VarChar(36)
+  idempotencyKeyHash String?                   @map("idempotency_key_hash") @db.VarChar(64)
+  requestHash        String?                   @map("request_hash") @db.VarChar(64)
   description   String?                   @db.VarChar(500)
   createdAt     DateTime                  @default(now()) @map("created_at")
 
   wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
 
+  @@unique([walletId, idempotencyKeyHash], map: "wallet_transactions_wallet_id_idempotency_key_hash_key")
   @@index([walletId])
   @@index([referenceType, referenceId])
   @@index([createdAt])

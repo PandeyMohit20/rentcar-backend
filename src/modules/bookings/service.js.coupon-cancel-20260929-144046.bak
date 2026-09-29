@@ -200,16 +200,6 @@ async function cancelBooking({ userId, bookingId, reason, idempotencyKey, testHo
 
     const now = new Date();
     const updated = await tx.booking.update({ where: { id: booking.id }, data: { status: 'CANCELLED', cancelledAt: now, cancellationReason: reason || null } });
-    // Explicitly cancelled unpaid bookings release their coupon claim.
-    // Paid cancellations keep CouponUsage because the coupon was financially consumed.
-    if (unpaid) {
-      await tx.couponUsage.deleteMany({
-        where: {
-          bookingId: booking.id,
-          userId: booking.userId,
-        },
-      });
-    }
     if (testHooks?.afterBookingMutation) await testHooks.afterBookingMutation({ tx, bookingId: booking.id, booking: updated });
 
     if (paid) await require('../vendors/settlementFinancialGuard').markFinancialReview(tx, booking.id, 'REFUND_CREATED');

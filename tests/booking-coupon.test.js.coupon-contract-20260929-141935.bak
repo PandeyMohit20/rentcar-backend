@@ -108,21 +108,10 @@ describe('Coupon booking consumption', () => {
     const quoted = await quote('SAVE10');
 
     expect(quoted).toMatchObject({
-      duration: {
-        originalRentalSubtotal: 1000,
-        discount: 100,
-        rentalSubtotal: 900,
-      },
-      pricing: {
-        originalRentalSubtotal: 1000,
-        discount: 100,
-        rentalSubtotal: 900,
-        securityDeposit: 500,
-      },
-      coupon: {
-        code: 'SAVE10',
-        discountAmount: 100,
-      },
+      originalRentalSubtotal: 1000,
+      rentalSubtotal: 900,
+      discountAmount: 100,
+      securityDeposit: 500,
     });
 
     const response = await book(
