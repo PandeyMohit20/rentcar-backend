@@ -1,0 +1,160 @@
+'use strict';
+
+const { prisma } = require('../../config/database');
+
+function buildWhere(filters = {}) {
+  const where = {
+    isDeleted: false,
+  };
+
+  if (filters.status) {
+    where.status = filters.status;
+  }
+
+  if (filters.vendorId) {
+    where.vendorId = filters.vendorId;
+  }
+
+  if (filters.branchId) {
+    where.branchId = filters.branchId;
+  }
+
+  if (filters.search) {
+    where.OR = [
+      {
+        registrationNumber: {
+          contains: filters.search,
+        },
+      },
+      {
+        brand: {
+          contains: filters.search,
+        },
+      },
+      {
+        model: {
+          contains: filters.search,
+        },
+      },
+      {
+        variant: {
+          contains: filters.search,
+        },
+      },
+    ];
+  }
+
+  return where;
+}
+
+async function findInventory(filters = {}) {
+  return prisma.car.findMany({
+    where: buildWhere(filters),
+
+    orderBy: [
+      {
+        brand: 'asc',
+      },
+      {
+        model: 'asc',
+      },
+      {
+        registrationNumber: 'asc',
+      },
+    ],
+
+    select: {
+      id: true,
+      registrationNumber: true,
+      brand: true,
+      model: true,
+      variant: true,
+      manufacturingYear: true,
+      fuelType: true,
+      transmission: true,
+      seatingCapacity: true,
+      status: true,
+      odometer: true,
+      createdAt: true,
+      updatedAt: true,
+
+      vendor: {
+        select: {
+          id: true,
+          companyName: true,
+          legalName: true,
+        },
+      },
+
+      branch: {
+        select: {
+          id: true,
+          name: true,
+          city: true,
+        },
+      },
+
+      images: {
+        orderBy: {
+          sortOrder: 'asc',
+        },
+        take: 1,
+        select: {
+          id: true,
+          imageUrl: true,
+          isPrimary: true,
+        },
+      },
+
+      availabilities: {
+        orderBy: {
+          date: 'desc',
+        },
+        take: 1,
+        select: {
+          id: true,
+          date: true,
+          startTime: true,
+          endTime: true,
+          status: true,
+          reason: true,
+        },
+      },
+
+      _count: {
+        select: {
+          bookings: true,
+        },
+      },
+    },
+  });
+}
+
+async function getStatusCounts() {
+  return prisma.car.groupBy({
+    by: ['status'],
+
+    where: {
+      isDeleted: false,
+    },
+
+    _count: {
+      _all: true,
+    },
+  });
+}
+
+async function countCars() {
+  return prisma.car.count({
+    where: {
+      isDeleted: false,
+    },
+  });
+}
+
+module.exports = {
+  buildWhere,
+  findInventory,
+  getStatusCounts,
+  countCars,
+};

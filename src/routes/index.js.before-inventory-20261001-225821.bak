@@ -20,7 +20,6 @@ const { bookingsRouter } = require('../modules/bookings/routes');
 const { paymentsRouter } = require('../modules/payments/routes');
 const { analyticsRouter } = require('../modules/analytics/routes');
 const { reportsRouter } = require('../modules/reports/routes');
-const { inventoryRouter } = require('../modules/inventory/routes');
 const { couponRouter } = require('../modules/coupons/routes');
 const { walletRouter } = require('../modules/wallet/routes');
 const { refundsRouter } = require('../modules/refunds/routes');
@@ -46,7 +45,7 @@ router.use('/health', healthRouter);
 // Mount auth module (Phases 19-20).
 router.use('/auth', authRouter);
 
-// Mount users module (Phase 21 â€” user, profile, address, account management).
+// Mount users module (Phase 21 — user, profile, address, account management).
 router.use('/users', usersRouter);
 router.use('/profiles', profilesRouter);
 router.use('/addresses', addressesRouter);
@@ -62,7 +61,6 @@ router.use('/bookings', bookingsRouter);
 router.use('/payments', paymentsRouter);
 router.use('/analytics', analyticsRouter);
 router.use('/reports', reportsRouter);
-router.use('/inventory', inventoryRouter);
 router.use('/coupons', couponRouter);
 router.use('/wallet', walletRouter);
 router.use('/refunds', refundsRouter);
@@ -90,7 +88,7 @@ router.get(
   InvoicesController.getForBooking,
 );
 
-// Future modules â€” 501 Not Implemented placeholders.
+// Future modules — 501 Not Implemented placeholders.
 // Business logic for these belongs to later phases.
 const futureModules = ['coupons', 'reviews', 'notifications', 'support', 'admin'];
 

@@ -1,0 +1,22 @@
+'use strict';
+
+const { z } = require('zod');
+
+const CAR_STATUSES = ['available', 'booked', 'busy', 'maintenance', 'inactive', 'retired'];
+
+const inventoryQuerySchema = z
+  .object({
+    search: z.string().trim().max(150).optional(),
+
+    vendorId: z.string().uuid().optional(),
+
+    branchId: z.string().uuid().optional(),
+
+    status: z.enum(CAR_STATUSES).optional(),
+  })
+  .strict();
+
+module.exports = {
+  CAR_STATUSES,
+  inventoryQuerySchema,
+};
