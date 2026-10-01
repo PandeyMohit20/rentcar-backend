@@ -5,47 +5,26 @@ async function billingSnapshot(db, userId, vendorId, car, uatBypass = false) {
     db.user.findUnique({ where: { id: userId }, select: { name: true, email: true } }),
     db.vendor.findUnique({
       where: { id: vendorId },
-      select: {
-        legalName: true,
-        companyName: true,
-        email: true,
-        phone: true,
-        gstin: true,
-        taxProfile: true,
-      },
+      select: { legalName: true, companyName: true, gstin: true, taxProfile: true },
     }),
     db.address.findFirst({ where: { userId, isDefault: true }, orderBy: { createdAt: 'asc' } }),
   ]);
-  if (uatBypass && !require('../../config/uatTax').isUatTaxBypass())
-    throw require('../pricing/tax').blocked('UAT_TAX_BYPASS_DISABLED');
-  const policy = vendor?.taxProfile;
+  if (uatBypass && !require('../../config/uatTax').isUatTaxBypass()) throw require('../pricing/tax').blocked('UAT_TAX_BYPASS_DISABLED');
+  const policy = uatBypass ? null : vendor?.taxProfile;
   return {
     seller: {
-      legalName: policy?.legalName || vendor?.legalName || vendor?.companyName || null,
+      legalName: policy?.legalName || vendor?.legalName || null,
       address: policy?.address || null,
-
-      // UAT receipts may use the configured seller identity,
-      // but must not inherit normal tax-document semantics.
-      gstRegistrationStatus: uatBypass ? null : policy?.gstRegistrationStatus || null,
-      gstin:
-        uatBypass || policy?.gstRegistrationStatus === 'UNREGISTERED'
-          ? null
-          : policy?.gstin || null,
-
+      gstRegistrationStatus: policy?.gstRegistrationStatus || null,
+      gstin: policy?.gstRegistrationStatus === 'UNREGISTERED' ? null : policy?.gstin || null,
       sellerState: policy?.sellerState || null,
       state: policy?.state || null,
-
       documentTitle: uatBypass ? 'UAT Receipt' : policy?.documentTitle || null,
-
-      documentApproved: uatBypass ? false : policy?.documentApproved || false,
-
-      documentApprovalReference: uatBypass ? null : policy?.documentApprovalReference || null,
-
-      sac: uatBypass ? null : policy?.sac || null,
-
-      supportEmail: policy?.supportEmail || vendor?.email || null,
-
-      supportPhone: policy?.supportPhone || vendor?.phone || null,
+      documentApproved: policy?.documentApproved || false,
+      documentApprovalReference: policy?.documentApprovalReference || null,
+      sac: policy?.sac || null,
+      supportEmail: policy?.supportEmail || null,
+      supportPhone: policy?.supportPhone || null,
     },
     customer: {
       name: user?.name || null,

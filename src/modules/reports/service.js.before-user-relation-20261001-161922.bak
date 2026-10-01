@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const ReportsRepository = require('./repository');
 const { SUCCESSFUL_PAYMENT_STATUSES, SUCCESSFUL_REFUND_STATUSES } = require('./constants');
@@ -203,11 +203,11 @@ function buildReport(bookings, filters) {
       bookingStatus: booking.status,
       paymentStatus: booking.paymentStatus,
 
-      customer: booking.user
+      customer: booking.customer
         ? {
-            id: booking.user.id,
-            name: booking.user.name,
-            email: booking.user.email,
+            id: booking.customer.id,
+            name: booking.customer.name,
+            email: booking.customer.email,
           }
         : null,
 

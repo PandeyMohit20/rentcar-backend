@@ -29,104 +29,81 @@ function createClient() {
 async function createOrder({ amount, currency, receipt }) {
   return createClient().orders.create({ amount, currency, receipt });
 }
+const REFUND_BASE_URL = 'https://api.razorpay.com/v1';
 function providerKey(value) {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{10,}$/.test(value);
 }
-async function createRefund({ providerPaymentId, amountMinor, idempotencyKey }) {
-  if (!configured('RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET')) {
-    throw unavailable();
-  }
-
-  if (!providerPaymentId) {
+async function createRefund({
+  providerPaymentId,
+  amountMinor,
+  idempotencyKey,
+  transport = global.fetch,
+}) {
+  if (!configured('RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET')) throw unavailable();
+  if (
+    !providerPaymentId ||
+    !Number.isSafeInteger(amountMinor) ||
+    amountMinor < 1 ||
+    !providerKey(idempotencyKey)
+  )
     throw new AppError(
-      'Razorpay payment id is required.',
-      httpStatus.BAD_REQUEST,
+      'Invalid persisted Razorpay refund request.',
+      httpStatus.UNPROCESSABLE_ENTITY,
       errorCodes.VALIDATION_ERROR,
     );
-  }
-
-  if (!Number.isSafeInteger(amountMinor) || amountMinor < 1) {
-    throw new AppError(
-      'Refund amount must be a positive integer in minor units.',
-      httpStatus.BAD_REQUEST,
-      errorCodes.VALIDATION_ERROR,
-    );
-  }
-
-  if (!providerKey(idempotencyKey)) {
-    throw new AppError(
-      'Invalid persisted refund idempotency key.',
-      httpStatus.BAD_REQUEST,
-      errorCodes.VALIDATION_ERROR,
-    );
-  }
-
-  let body;
-
+  const auth = Buffer.from(`${env.RAZORPAY_KEY_ID}:${env.RAZORPAY_KEY_SECRET}`).toString('base64');
+  let response;
   try {
-    body = await createClient().payments.refund(providerPaymentId, {
-      amount: amountMinor,
-    });
-  } catch (error) {
-    const providerStatus =
-      Number(error?.statusCode) || Number(error?.status) || Number(error?.response?.status) || null;
-
-    const sourceError =
-      error?.error && typeof error.error === 'object'
-        ? error.error
-        : error?.response?.data?.error && typeof error.response.data.error === 'object'
-          ? error.response.data.error
-          : {};
-
-    const safeProviderError = {
-      code: typeof sourceError.code === 'string' ? sourceError.code.slice(0, 100) : null,
-      description:
-        typeof sourceError.description === 'string'
-          ? sourceError.description.replace(/[\r\n\t]/g, ' ').slice(0, 500)
-          : null,
-      reason: typeof sourceError.reason === 'string' ? sourceError.reason.slice(0, 100) : null,
-      source: typeof sourceError.source === 'string' ? sourceError.source.slice(0, 100) : null,
-      step: typeof sourceError.step === 'string' ? sourceError.step.slice(0, 100) : null,
-    };
-
-    if (providerStatus >= 400 && providerStatus < 500) {
-      const err = new AppError(
-        safeProviderError.description || 'Razorpay refund request was rejected.',
-        httpStatus.SERVICE_UNAVAILABLE,
-        errorCodes.PAYMENT_PROVIDER_UNAVAILABLE,
-      );
-
-      err.definitive = true;
-      err.providerStatus = providerStatus;
-      err.providerError = safeProviderError;
-
-      throw err;
-    }
-
-    const err = new AppError(
+    response = await transport(
+      `${REFUND_BASE_URL}/payments/${encodeURIComponent(providerPaymentId)}/refund`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/json',
+          'X-Refund-Idempotency': idempotencyKey,
+        },
+        body: JSON.stringify({ amount: amountMinor }),
+        signal: AbortSignal.timeout(15000),
+      },
+    );
+  } catch (err) {
+    const unknown = new AppError(
       'Razorpay refund outcome is unknown; retry with the same idempotency key.',
       httpStatus.SERVICE_UNAVAILABLE,
       errorCodes.PAYMENT_PROVIDER_UNAVAILABLE,
     );
-
-    err.ambiguous = true;
+    unknown.ambiguous = true;
+    throw unknown;
+  }
+  let body;
+  try {
+    body = await response.json();
+  } catch (_) {
+    body = {};
+  }
+  if (!response.ok) {
+    const err = new AppError(
+      'Razorpay refund request was rejected.',
+      httpStatus.SERVICE_UNAVAILABLE,
+      errorCodes.PAYMENT_PROVIDER_UNAVAILABLE,
+    );
+    err.definitive = response.status >= 400 && response.status < 500;
+    err.providerStatus = response.status;
     throw err;
   }
-
-  if (!body?.id || body.payment_id !== providerPaymentId || Number(body.amount) !== amountMinor) {
+  if (!body.id || body.payment_id !== providerPaymentId || Number(body.amount) !== amountMinor)
     throw new AppError(
-      'Razorpay returned inconsistent refund details.',
+      'Razorpay refund response did not match the persisted request.',
       httpStatus.CONFLICT,
       errorCodes.CONFLICT,
     );
-  }
-
   return {
     providerRefundId: body.id,
     providerPaymentId: body.payment_id,
     amountMinor: Number(body.amount),
-    currency: body.currency || 'INR',
-    status: String(body.status || '').toLowerCase(),
+    currency: body.currency,
+    status: body.status,
     rawStatus: body.status,
   };
 }

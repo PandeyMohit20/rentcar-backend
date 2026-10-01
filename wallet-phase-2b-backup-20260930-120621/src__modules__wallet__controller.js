@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const { WalletService } = require('./service');
 const { success } = require('../../utils/response');
@@ -26,35 +26,6 @@ const WalletController = {
       });
     } catch (err) {
       return next(err);
-    }
-  },
-
-  async createTopup(req, res, next) {
-    try {
-      const result = await WalletService.createTopup(req.user.sub, req.body.amount);
-
-      return success(res, {
-        statusCode: 201,
-        message: 'Wallet top-up order created successfully.',
-        data: result,
-      });
-    } catch (error) {
-      return next(error);
-    }
-  },
-
-  async verifyTopup(req, res, next) {
-    try {
-      const result = await WalletService.verifyTopup(req.user.sub, req.body);
-
-      return success(res, {
-        message: result.replayed
-          ? 'Wallet top-up already processed.'
-          : 'Wallet top-up completed successfully.',
-        data: result,
-      });
-    } catch (error) {
-      return next(error);
     }
   },
 };

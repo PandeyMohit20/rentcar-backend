@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const { prisma } = require('../../config/database');
 
@@ -68,7 +68,7 @@ async function findReportBookings(filters = {}) {
       totalAmount: true,
       currencyCode: true,
 
-      user: {
+      customer: {
         select: {
           id: true,
           name: true,

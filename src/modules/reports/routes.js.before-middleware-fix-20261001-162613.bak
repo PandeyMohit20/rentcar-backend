@@ -1,14 +1,14 @@
-'use strict';
+﻿'use strict';
 
 const { Router } = require('express');
 const { ReportsController } = require('./controller');
 const { reportsQuerySchema } = require('./validator');
 
-const { authenticate } = require('../../middlewares/authenticate');
+const { authenticate } = require('../../middleware/authenticate');
 
-const { authorize } = require('../../middlewares/authorize');
+const { authorize } = require('../../middleware/authorize');
 
-const { validate } = require('../../middlewares/validate');
+const { validate } = require('../../middleware/validate');
 
 const router = Router();
 

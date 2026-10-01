@@ -21,7 +21,8 @@ function clone(value) {
   if (value === undefined) return undefined;
   if (value instanceof Date) return new Date(value);
   if (Array.isArray(value)) return value.map(clone);
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, clone(item)]));
+  if (value && typeof value === 'object')
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, clone(item)]));
   return value;
 }
 
@@ -34,7 +35,8 @@ function valuesEqual(a, b) {
   if (aNull || bNull) {
     return aNull && bNull;
   }
-  if (a instanceof Date || b instanceof Date) return new Date(a).getTime() === new Date(b).getTime();
+  if (a instanceof Date || b instanceof Date)
+    return new Date(a).getTime() === new Date(b).getTime();
   return a === b;
 }
 
@@ -84,8 +86,10 @@ function applyInclude(record, include, store, modelName) {
 
   if (modelName === 'car') {
     if (include.images) out.images = store.carImage.filter((image) => image.carId === record.id);
-    if (include.features) out.features = store.carFeature.filter((feature) => feature.carId === record.id);
-    if (include.pricings) out.pricings = store.carPricing.filter((pricing) => pricing.carId === record.id);
+    if (include.features)
+      out.features = store.carFeature.filter((feature) => feature.carId === record.id);
+    if (include.pricings)
+      out.pricings = store.carPricing.filter((pricing) => pricing.carId === record.id);
     if (include.branch) out.branch = null;
     if (include.vendor) out.vendor = null;
   }
@@ -197,7 +201,11 @@ function createModel(modelName, store, hooks = {}) {
     },
 
     async create({ data }) {
-      if (modelName === 'emailDelivery' && list().some(r => r.dedupeKey === data.dedupeKey)) { const err = new Error('Duplicate delivery'); err.code = 'P2002'; throw err; }
+      if (modelName === 'emailDelivery' && list().some((r) => r.dedupeKey === data.dedupeKey)) {
+        const err = new Error('Duplicate delivery');
+        err.code = 'P2002';
+        throw err;
+      }
       const id = data.id || uuid.v4();
       const now = new Date();
       const record = {
@@ -220,7 +228,14 @@ function createModel(modelName, store, hooks = {}) {
         err.code = 'P2025';
         throw err;
       }
-      const values = Object.fromEntries(Object.entries(data).map(([key, value]) => [key, value && typeof value === 'object' && 'increment' in value ? Number(record[key] || 0) + value.increment : clone(value)]));
+      const values = Object.fromEntries(
+        Object.entries(data).map(([key, value]) => [
+          key,
+          value && typeof value === 'object' && 'increment' in value
+            ? Number(record[key] || 0) + value.increment
+            : clone(value),
+        ]),
+      );
       Object.assign(record, values, { updatedAt: new Date() });
       return { ...record };
     },
@@ -235,9 +250,7 @@ function createModel(modelName, store, hooks = {}) {
       const targets = list().filter((r) => matchesWhere(r, where));
       const targetIds = new Set(targets.map((r) => r.id));
 
-      store[modelName] = list().filter(
-        (r) => !targetIds.has(r.id),
-      );
+      store[modelName] = list().filter((r) => !targetIds.has(r.id));
 
       return { count: targets.length };
     },
@@ -300,9 +313,11 @@ function createMockPrisma() {
     carAvailability: [],
     booking: [],
     bookingItem: [],
-    bookingStatusHistory: [],
+    bookingStatusHistory: [],
+
     wallet: [],
     walletTransaction: [],
+    walletTopup: [],
     coupon: [],
     couponUsage: [],
     tripHistory: [],
@@ -372,9 +387,11 @@ function createMockPrisma() {
     carAvailability: createModel('carAvailability', store),
     booking: createModel('booking', store),
     bookingItem: createModel('bookingItem', store),
-    bookingStatusHistory: createModel('bookingStatusHistory', store),
+    bookingStatusHistory: createModel('bookingStatusHistory', store),
+
     wallet: createModel('wallet', store),
     walletTransaction: createModel('walletTransaction', store),
+    walletTopup: createModel('walletTopup', store),
     coupon: createModel('coupon', store),
     couponUsage: createModel('couponUsage', store),
     tripHistory: createModel('tripHistory', store),
@@ -393,15 +410,8 @@ function createMockPrisma() {
   const createCoupon = prisma.coupon.create;
 
   prisma.coupon.create = async ({ data }) => {
-    if (
-      data.code &&
-      store.coupon.some(
-        (coupon) => coupon.code === data.code,
-      )
-    ) {
-      const err = new Error(
-        'Unique constraint failed',
-      );
+    if (data.code && store.coupon.some((coupon) => coupon.code === data.code)) {
+      const err = new Error('Unique constraint failed');
       err.code = 'P2002';
       err.meta = { target: ['code'] };
       throw err;
@@ -417,21 +427,15 @@ function createMockPrisma() {
     });
   };
 
-  const createCouponUsage =
-    prisma.couponUsage.create;
+  const createCouponUsage = prisma.couponUsage.create;
 
   prisma.couponUsage.create = async ({ data }) => {
-    const duplicate =
-      store.couponUsage.some(
-        (usage) =>
-          usage.couponId === data.couponId &&
-          usage.bookingId === data.bookingId,
-      );
+    const duplicate = store.couponUsage.some(
+      (usage) => usage.couponId === data.couponId && usage.bookingId === data.bookingId,
+    );
 
     if (duplicate) {
-      const err = new Error(
-        'Unique constraint failed',
-      );
+      const err = new Error('Unique constraint failed');
       err.code = 'P2002';
       err.meta = {
         target: ['couponId', 'bookingId'],
@@ -446,7 +450,8 @@ function createMockPrisma() {
   prisma.booking.create = async ({ data }) => {
     if (data.idempotencyKey) {
       const duplicate = store.booking.find(
-        (booking) => booking.userId === data.userId && booking.idempotencyKey === data.idempotencyKey,
+        (booking) =>
+          booking.userId === data.userId && booking.idempotencyKey === data.idempotencyKey,
       );
       if (duplicate) {
         const err = new Error('Unique constraint failed');
@@ -496,8 +501,7 @@ function createMockPrisma() {
         data.idempotencyKeyHash !== undefined &&
         store.walletTransaction.some(
           (row) =>
-            row.walletId === data.walletId &&
-            row.idempotencyKeyHash === data.idempotencyKeyHash,
+            row.walletId === data.walletId && row.idempotencyKeyHash === data.idempotencyKeyHash,
         )
       ) {
         const err = new Error('Unique constraint failed');
@@ -511,17 +515,27 @@ function createMockPrisma() {
   for (const model of ['vendorSettlement', 'vendorSettlementItem']) {
     const create = prisma[model].create;
     prisma[model].create = async ({ data }) => {
-      const fields = model === 'vendorSettlement'
-        ? [['id'], ['settlementNumber'], ['payoutReference'], ['vendorId', 'idempotencyKeyHash']]
-        : [['id'], ['bookingId', 'paymentId']];
+      const fields =
+        model === 'vendorSettlement'
+          ? [['id'], ['settlementNumber'], ['payoutReference'], ['vendorId', 'idempotencyKeyHash']]
+          : [['id'], ['bookingId', 'paymentId']];
       for (const keys of fields) {
-        if (keys.every((key) => data[key] !== null && data[key] !== undefined) && store[model].some((row) => keys.every((key) => row[key] === data[key]))) {
+        if (
+          keys.every((key) => data[key] !== null && data[key] !== undefined) &&
+          store[model].some((row) => keys.every((key) => row[key] === data[key]))
+        ) {
           const err = new Error('Unique constraint failed');
-          err.code = 'P2002'; err.meta = { target: keys };
+          err.code = 'P2002';
+          err.meta = { target: keys };
           throw err;
         }
       }
-      return create({ data: model === 'vendorSettlement' ? { requiresFinancialReview: false, financialReviewReason: null, ...data } : data });
+      return create({
+        data:
+          model === 'vendorSettlement'
+            ? { requiresFinancialReview: false, financialReviewReason: null, ...data }
+            : data,
+      });
     };
   }
 
@@ -535,7 +549,10 @@ function createMockPrisma() {
       ...data,
     };
     for (const field of ['providerOrderId', 'providerPaymentId']) {
-      if (paymentData[field] && store.payment.some((payment) => payment[field] === paymentData[field])) {
+      if (
+        paymentData[field] &&
+        store.payment.some((payment) => payment[field] === paymentData[field])
+      ) {
         const err = new Error('Unique constraint failed');
         err.code = 'P2002';
         throw err;
@@ -559,17 +576,40 @@ function createMockPrisma() {
 
   const createRefund = prisma.refund.create;
   prisma.refund.create = async ({ data }) => {
-    if (data.idempotencyKey && store.refund.some((refund) => refund.bookingId === data.bookingId && refund.idempotencyKey === data.idempotencyKey)) { const err = new Error('Unique constraint failed'); err.code = 'P2002'; throw err; }
+    if (
+      data.idempotencyKey &&
+      store.refund.some(
+        (refund) =>
+          refund.bookingId === data.bookingId && refund.idempotencyKey === data.idempotencyKey,
+      )
+    ) {
+      const err = new Error('Unique constraint failed');
+      err.code = 'P2002';
+      throw err;
+    }
     return createRefund({ data });
   };
   const createRefundWebhookEvent = prisma.refundWebhookEvent.create;
   prisma.refundWebhookEvent.create = async ({ data }) => {
-    if (store.refundWebhookEvent.some((event) => event.provider === data.provider && event.providerEventId === data.providerEventId)) { const err = new Error('Unique constraint failed'); err.code = 'P2002'; throw err; }
+    if (
+      store.refundWebhookEvent.some(
+        (event) =>
+          event.provider === data.provider && event.providerEventId === data.providerEventId,
+      )
+    ) {
+      const err = new Error('Unique constraint failed');
+      err.code = 'P2002';
+      throw err;
+    }
     return createRefundWebhookEvent({ data });
   };
   const createInvoice = prisma.invoice.create;
   prisma.invoice.create = async ({ data }) => {
-    if (data.bookingId && store.invoice.some((invoice) => invoice.bookingId === data.bookingId)) { const err = new Error('Unique constraint failed'); err.code = 'P2002'; throw err; }
+    if (data.bookingId && store.invoice.some((invoice) => invoice.bookingId === data.bookingId)) {
+      const err = new Error('Unique constraint failed');
+      err.code = 'P2002';
+      throw err;
+    }
     return createInvoice({ data });
   };
 

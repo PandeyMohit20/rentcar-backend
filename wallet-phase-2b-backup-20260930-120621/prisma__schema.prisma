@@ -279,36 +279,35 @@ model User {
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
-  profile                  Profile?                        @relation("ProfileSubject")
-  addresses                Address[]
-  refreshTokens            RefreshToken[]
-  sessions                 Session[]
-  otps                     Otp[]
-  roles                    UserRole[]
-  notifications            Notification[]
-  supportTickets           SupportTicket[]                 @relation("TicketReporter")
-  assignedTickets          SupportTicket[]                 @relation("TicketAssignee")
-  activityLogs             ActivityLog[]
-  auditLogs                AuditLog[]
-  ratings                  Review[]
-  tripsRequested           TripExtension[]                 @relation("ExtensionRequester")
-  tripsApproved            TripExtension[]                 @relation("ExtensionApprover")
-  wallet                   Wallet?
-  bookings                 Booking[]
-  payments                 Payment[]
-  couponUsages             CouponUsage[]
-  invoices                 Invoice[]
-  supportMessages          SupportMessage[]
-  userDocuments            UserDocument[]                  @relation("UserDocuments")
-  verifiedUserDocuments    UserDocument[]                  @relation("UserDocumentVerifiedBy")
-  verifiedProfiles         Profile[]                       @relation("ProfileVerifiedBy")
-  verifiedVendors          Vendor[]                        @relation("VendorVerifiedBy")
-  verifiedVendorDocuments  VendorDocument[]                @relation("VendorDocumentVerifiedBy")
-  vendorMemberships        VendorMember[]
-  tripsStarted             TripHistory[]                   @relation("TripStartedBy")
-  tripsCompleted           TripHistory[]                   @relation("TripCompletedBy")
+  profile                 Profile?         @relation("ProfileSubject")
+  addresses               Address[]
+  refreshTokens           RefreshToken[]
+  sessions                Session[]
+  otps                    Otp[]
+  roles                   UserRole[]
+  notifications           Notification[]
+  supportTickets          SupportTicket[]  @relation("TicketReporter")
+  assignedTickets         SupportTicket[]  @relation("TicketAssignee")
+  activityLogs            ActivityLog[]
+  auditLogs               AuditLog[]
+  ratings                 Review[]
+  tripsRequested          TripExtension[]  @relation("ExtensionRequester")
+  tripsApproved           TripExtension[]  @relation("ExtensionApprover")
+  wallet                  Wallet?
+  bookings                Booking[]
+  payments                Payment[]
+  couponUsages            CouponUsage[]
+  invoices                Invoice[]
+  supportMessages         SupportMessage[]
+  userDocuments           UserDocument[]   @relation("UserDocuments")
+  verifiedUserDocuments   UserDocument[]   @relation("UserDocumentVerifiedBy")
+  verifiedProfiles        Profile[]        @relation("ProfileVerifiedBy")
+  verifiedVendors         Vendor[]         @relation("VendorVerifiedBy")
+  verifiedVendorDocuments VendorDocument[] @relation("VendorDocumentVerifiedBy")
+  vendorMemberships       VendorMember[]
+  tripsStarted            TripHistory[]    @relation("TripStartedBy")
+  tripsCompleted          TripHistory[]    @relation("TripCompletedBy")
   settlementPayoutAttempts VendorSettlementPayoutAttempt[] @relation("PayoutAttemptInitiator")
-  walletTopups             WalletTopup[]
 
   @@index([phone])
   @@index([status])
@@ -556,8 +555,8 @@ model VendorBankAccount {
   createdAt     DateTime   @default(now()) @map("created_at")
   updatedAt     DateTime   @updatedAt @map("updated_at")
 
-  vendor         Vendor                          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  settlements    VendorSettlement[]
+  vendor      Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  settlements VendorSettlement[]
   payoutAttempts VendorSettlementPayoutAttempt[]
 
   @@index([vendorId])
@@ -1222,25 +1221,25 @@ model VendorSettlement {
   failedAt        DateTime? @map("failed_at")
   failureReason   String?   @map("failure_reason") @db.VarChar(500)
 
-  idempotencyKeyHash      String? @map("idempotency_key_hash") @db.VarChar(64)
-  requestHash             String? @map("request_hash") @db.VarChar(64)
+  idempotencyKeyHash       String? @map("idempotency_key_hash") @db.VarChar(64)
+  requestHash              String? @map("request_hash") @db.VarChar(64)
   requiresFinancialReview Boolean @default(false) @map("requires_financial_review")
   financialReviewReason   String? @map("financial_review_reason") @db.VarChar(500)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  vendor         Vendor                          @relation(fields: [vendorId], references: [id], onDelete: Restrict)
-  bankAccount    VendorBankAccount?              @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
-  items          VendorSettlementItem[]
+  vendor      Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  bankAccount VendorBankAccount?     @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  items       VendorSettlementItem[]
   payoutAttempts VendorSettlementPayoutAttempt[]
 
-  @@unique([vendorId, idempotencyKeyHash], map: "vendor_settlements_vendor_id_idempotency_key_hash_key")
   @@index([vendorId])
   @@index([vendorId, status])
   @@index([periodStart, periodEnd])
   @@index([bankAccountId])
   @@index([createdAt])
+  @@unique([vendorId, idempotencyKeyHash], map: "vendor_settlements_vendor_id_idempotency_key_hash_key")
   @@map("vendor_settlements")
 }
 
@@ -1256,33 +1255,33 @@ enum VendorSettlementPayoutAttemptStatusEnum {
 }
 
 model VendorSettlementPayoutAttempt {
-  id                     String                                  @id @default(uuid()) @db.VarChar(36)
-  settlementId           String                                  @map("settlement_id") @db.VarChar(36)
-  attemptNumber          Int                                     @map("attempt_number")
-  idempotencyKeyHash     String                                  @map("idempotency_key_hash") @db.VarChar(64)
-  requestHash            String                                  @map("request_hash") @db.VarChar(64)
-  provider               String                                  @db.VarChar(100)
-  providerPayoutId       String?                                 @map("provider_payout_id") @db.VarChar(150)
-  bankAccountId          String                                  @map("bank_account_id") @db.VarChar(36)
-  destinationFingerprint String                                  @map("destination_fingerprint") @db.VarChar(64)
-  destinationSnapshot    Json                                    @map("destination_snapshot")
-  amount                 Decimal                                 @db.Decimal(14, 2)
-  currencyCode           String                                  @map("currency_code") @db.VarChar(3)
+  id                     String @id @default(uuid()) @db.VarChar(36)
+  settlementId           String @map("settlement_id") @db.VarChar(36)
+  attemptNumber          Int @map("attempt_number")
+  idempotencyKeyHash      String @map("idempotency_key_hash") @db.VarChar(64)
+  requestHash            String @map("request_hash") @db.VarChar(64)
+  provider               String @db.VarChar(100)
+  providerPayoutId        String? @map("provider_payout_id") @db.VarChar(150)
+  bankAccountId          String @map("bank_account_id") @db.VarChar(36)
+  destinationFingerprint String @map("destination_fingerprint") @db.VarChar(64)
+  destinationSnapshot    Json @map("destination_snapshot")
+  amount                 Decimal @db.Decimal(14, 2)
+  currencyCode           String @map("currency_code") @db.VarChar(3)
   status                 VendorSettlementPayoutAttemptStatusEnum @default(prepared)
-  initiatedBy            String                                  @map("initiated_by") @db.VarChar(36)
-  initiatedAt            DateTime                                @default(now()) @map("initiated_at")
-  submittedAt            DateTime?                               @map("submitted_at")
-  paidAt                 DateTime?                               @map("paid_at")
-  failedAt               DateTime?                               @map("failed_at")
-  failureCode            String?                                 @map("failure_code") @db.VarChar(100)
-  lastReconciledAt       DateTime?                               @map("last_reconciled_at")
-  providerStatus         String?                                 @map("provider_status") @db.VarChar(100)
-  createdAt              DateTime                                @default(now()) @map("created_at")
-  updatedAt              DateTime                                @updatedAt @map("updated_at")
+  initiatedBy            String @map("initiated_by") @db.VarChar(36)
+  initiatedAt            DateTime @default(now()) @map("initiated_at")
+  submittedAt            DateTime? @map("submitted_at")
+  paidAt                 DateTime? @map("paid_at")
+  failedAt               DateTime? @map("failed_at")
+  failureCode            String? @map("failure_code") @db.VarChar(100)
+  lastReconciledAt        DateTime? @map("last_reconciled_at")
+  providerStatus         String? @map("provider_status") @db.VarChar(100)
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
 
-  settlement  VendorSettlement  @relation(fields: [settlementId], references: [id], onDelete: Restrict)
+  settlement VendorSettlement @relation(fields: [settlementId], references: [id], onDelete: Restrict)
   bankAccount VendorBankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
-  initiator   User              @relation("PayoutAttemptInitiator", fields: [initiatedBy], references: [id], onDelete: Restrict)
+  initiator User @relation("PayoutAttemptInitiator", fields: [initiatedBy], references: [id], onDelete: Restrict)
 
   @@unique([settlementId, attemptNumber], map: "payout_attempt_settlement_number_key")
   @@unique([settlementId, idempotencyKeyHash], map: "payout_attempt_settlement_idempotency_key")
@@ -1337,18 +1336,18 @@ model Wallet {
 }
 
 model WalletTransaction {
-  id                 String                    @id @default(uuid()) @db.VarChar(36)
-  walletId           String                    @map("wallet_id") @db.VarChar(36)
-  type               WalletTransactionTypeEnum @default(credit)
-  amount             Decimal                   @db.Decimal(14, 2)
-  balanceBefore      Decimal                   @map("balance_before") @db.Decimal(14, 2)
-  balanceAfter       Decimal                   @map("balance_after") @db.Decimal(14, 2)
-  referenceType      WalletReferenceTypeEnum   @map("reference_type")
+  id            String                    @id @default(uuid()) @db.VarChar(36)
+  walletId      String                    @map("wallet_id") @db.VarChar(36)
+  type          WalletTransactionTypeEnum @default(credit)
+  amount        Decimal                   @db.Decimal(14, 2)
+  balanceBefore Decimal                   @map("balance_before") @db.Decimal(14, 2)
+  balanceAfter  Decimal                   @map("balance_after") @db.Decimal(14, 2)
+  referenceType WalletReferenceTypeEnum   @map("reference_type")
   referenceId        String?                   @map("reference_id") @db.VarChar(36)
   idempotencyKeyHash String?                   @map("idempotency_key_hash") @db.VarChar(64)
   requestHash        String?                   @map("request_hash") @db.VarChar(64)
-  description        String?                   @db.VarChar(500)
-  createdAt          DateTime                  @default(now()) @map("created_at")
+  description   String?                   @db.VarChar(500)
+  createdAt     DateTime                  @default(now()) @map("created_at")
 
   wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
 
@@ -1666,29 +1665,4 @@ model DailyMetric {
 
   @@index([metricDate])
   @@map("daily_metrics")
-}
-
-model WalletTopup {
-  id           String  @id @default(uuid()) @db.VarChar(36)
-  userId       String  @map("user_id") @db.VarChar(36)
-  amount       Decimal @db.Decimal(14, 2)
-  currencyCode String  @default("INR") @map("currency_code") @db.VarChar(3)
-
-  provider String @default("razorpay") @db.VarChar(100)
-
-  providerOrderId   String  @unique @map("provider_order_id") @db.VarChar(100)
-  providerPaymentId String? @unique @map("provider_payment_id") @db.VarChar(100)
-
-  status String @default("pending") @db.VarChar(32)
-
-  paidAt DateTime? @map("paid_at")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
-
-  @@index([userId])
-  @@index([status])
-  @@map("wallet_topups")
 }

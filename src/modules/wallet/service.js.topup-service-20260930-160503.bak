@@ -7,7 +7,6 @@ const AppError = require('../../errors/AppError');
 const { parsePagination, buildMeta, computeTotalPages } = require('../../utils/pagination');
 const repository = require('./repository');
 const { DEFAULT_CURRENCY, DEFAULT_STATUS } = require('./constants');
-const razorpay = require('../payments/providers/razorpay');
 
 const IDEMPOTENCY_KEY_MIN = 8;
 const IDEMPOTENCY_KEY_MAX = 255;
@@ -71,7 +70,7 @@ function amountToPaise(value) {
   }
 
   const [major, fraction = ''] = raw.split('.');
-  const paise = BigInt(major) * 100n + BigInt((fraction + '00').slice(0, 2));
+  const paise = (BigInt(major) * 100n) + BigInt((fraction + '00').slice(0, 2));
 
   if (paise <= 0n) {
     throw badRequest('Wallet amount must be greater than zero.', 'WALLET_AMOUNT_INVALID');
@@ -86,8 +85,9 @@ function amountToPaise(value) {
 }
 
 function decimalToPaise(value) {
-  const raw =
-    value && typeof value.toFixed === 'function' ? value.toFixed(2) : String(value ?? '0');
+  const raw = value && typeof value.toFixed === 'function'
+    ? value.toFixed(2)
+    : String(value ?? '0');
 
   if (!/^-?\d+(?:\.\d{1,2})?$/.test(raw)) {
     throw new AppError('Stored wallet balance is invalid.', 500, 'WALLET_BALANCE_INVALID');
@@ -96,7 +96,7 @@ function decimalToPaise(value) {
   const negative = raw.startsWith('-');
   const unsigned = negative ? raw.slice(1) : raw;
   const [major, fraction = ''] = unsigned.split('.');
-  const paise = BigInt(major) * 100n + BigInt((fraction + '00').slice(0, 2));
+  const paise = (BigInt(major) * 100n) + BigInt((fraction + '00').slice(0, 2));
   return negative ? -paise : paise;
 }
 
@@ -191,9 +191,14 @@ function validateMutationInput(input, type) {
     throw badRequest('Wallet user is required.', 'WALLET_USER_REQUIRED');
   }
 
-  const rawKey = typeof input.idempotencyKey === 'string' ? input.idempotencyKey.trim() : '';
+  const rawKey = typeof input.idempotencyKey === 'string'
+    ? input.idempotencyKey.trim()
+    : '';
 
-  if (rawKey.length < IDEMPOTENCY_KEY_MIN || rawKey.length > IDEMPOTENCY_KEY_MAX) {
+  if (
+    rawKey.length < IDEMPOTENCY_KEY_MIN ||
+    rawKey.length > IDEMPOTENCY_KEY_MAX
+  ) {
     throw badRequest(
       `Idempotency key must be ${IDEMPOTENCY_KEY_MIN}-${IDEMPOTENCY_KEY_MAX} characters.`,
       'WALLET_IDEMPOTENCY_KEY_INVALID',
@@ -206,14 +211,8 @@ function validateMutationInput(input, type) {
 
   const amountPaise = amountToPaise(input.amount);
   const amount = paiseToMoney(amountPaise);
-  const referenceId =
-    input.referenceId === null || input.referenceId === undefined
-      ? null
-      : String(input.referenceId).trim();
-  const description =
-    input.description === null || input.description === undefined
-      ? null
-      : String(input.description).trim();
+  const referenceId = input.referenceId === null || input.referenceId === undefined ? null : String(input.referenceId).trim();
+  const description = input.description === null || input.description === undefined ? null : String(input.description).trim();
 
   if (referenceId && referenceId.length > 36) {
     throw badRequest('Wallet reference id is too long.', 'WALLET_REFERENCE_ID_INVALID');
@@ -226,18 +225,16 @@ function validateMutationInput(input, type) {
   const idempotencyKeyHash = digest(rawKey);
 
   // Versioned tuple makes replay semantics explicit and stable.
-  const requestHash = digest(
-    JSON.stringify([
-      'wallet-mutation-v1',
-      userId,
-      type,
-      amount,
-      DEFAULT_CURRENCY,
-      input.referenceType,
-      referenceId,
-      description,
-    ]),
-  );
+  const requestHash = digest(JSON.stringify([
+    'wallet-mutation-v1',
+    userId,
+    type,
+    amount,
+    DEFAULT_CURRENCY,
+    input.referenceType,
+    referenceId,
+    description,
+  ]));
 
   return {
     userId,
@@ -305,7 +302,9 @@ async function ensureWallet(userId) {
 
 async function lockWallet(tx, walletId) {
   if (typeof tx.$queryRaw === 'function') {
-    await tx.$queryRaw(Prisma.sql`SELECT id FROM wallets WHERE id = ${walletId} FOR UPDATE`);
+    await tx.$queryRaw(
+      Prisma.sql`SELECT id FROM wallets WHERE id = ${walletId} FOR UPDATE`,
+    );
   }
 }
 
@@ -315,7 +314,10 @@ function assertMutable(wallet) {
   }
 
   if (wallet.status !== 'active') {
-    throw conflict(`Wallet is ${wallet.status} and cannot be changed.`, 'WALLET_NOT_ACTIVE');
+    throw conflict(
+      `Wallet is ${wallet.status} and cannot be changed.`,
+      'WALLET_NOT_ACTIVE',
+    );
   }
 
   if (wallet.currencyCode !== DEFAULT_CURRENCY) {
@@ -331,7 +333,11 @@ async function mutateWallet(type, input) {
   // All money movement remains inside the locked transaction below.
   const candidate = await ensureWallet(request.userId);
 
-  const preExisting = await findReplay(prisma, candidate.id, request.idempotencyKeyHash);
+  const preExisting = await findReplay(
+    prisma,
+    candidate.id,
+    request.idempotencyKeyHash,
+  );
   if (preExisting) return replayResult(preExisting, request.requestHash);
 
   try {
@@ -344,15 +350,23 @@ async function mutateWallet(type, input) {
       assertMutable(wallet);
 
       // Re-check after acquiring the wallet row lock.
-      const raced = await findReplay(tx, wallet.id, request.idempotencyKeyHash);
+      const raced = await findReplay(
+        tx,
+        wallet.id,
+        request.idempotencyKeyHash,
+      );
       if (raced) return replayResult(raced, request.requestHash);
 
       const beforePaise = decimalToPaise(wallet.balance);
-      const afterPaise =
-        type === 'credit' ? beforePaise + request.amountPaise : beforePaise - request.amountPaise;
+      const afterPaise = type === 'credit'
+        ? beforePaise + request.amountPaise
+        : beforePaise - request.amountPaise;
 
       if (afterPaise < 0n) {
-        throw conflict('Insufficient wallet balance.', 'WALLET_INSUFFICIENT_BALANCE');
+        throw conflict(
+          'Insufficient wallet balance.',
+          'WALLET_INSUFFICIENT_BALANCE',
+        );
       }
 
       if (afterPaise > 99999999999999n) {
@@ -408,7 +422,11 @@ async function mutateWallet(type, input) {
       });
 
       if (wallet) {
-        const winner = await findReplay(prisma, wallet.id, request.idempotencyKeyHash);
+        const winner = await findReplay(
+          prisma,
+          wallet.id,
+          request.idempotencyKeyHash,
+        );
         if (winner) return replayResult(winner, request.requestHash);
       }
     }
@@ -417,247 +435,6 @@ async function mutateWallet(type, input) {
   }
 }
 
-function walletTopupDto(topup) {
-  return {
-    id: topup.id,
-    amount: money(topup.amount),
-    currencyCode: topup.currencyCode,
-    provider: topup.provider,
-    providerOrderId: topup.providerOrderId,
-    providerPaymentId: topup.providerPaymentId || null,
-    status: topup.status,
-    paidAt: topup.paidAt || null,
-    createdAt: topup.createdAt,
-    updatedAt: topup.updatedAt,
-  };
-}
-
-async function createTopup(userId, amount) {
-  const amountPaise = amountToPaise(amount);
-
-  if (amountPaise > 10000000n) {
-    throw badRequest('Maximum wallet top-up amount is INR 100000.', 'WALLET_TOPUP_AMOUNT_TOO_HIGH');
-  }
-
-  const normalizedAmount = paiseToMoney(amountPaise);
-
-  const receipt = `wallet_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
-
-  const providerOrder = await razorpay.createOrder({
-    amount: Number(amountPaise),
-    currency: DEFAULT_CURRENCY,
-    receipt,
-  });
-
-  if (!providerOrder || !providerOrder.id) {
-    throw new AppError(
-      'Razorpay did not return a valid wallet top-up order.',
-      502,
-      'WALLET_TOPUP_ORDER_FAILED',
-    );
-  }
-
-  const topup = await prisma.walletTopup.create({
-    data: {
-      userId,
-      amount: normalizedAmount,
-      currencyCode: DEFAULT_CURRENCY,
-      provider: 'razorpay',
-      providerOrderId: providerOrder.id,
-      status: 'pending',
-    },
-  });
-
-  return {
-    topup: walletTopupDto(topup),
-    checkout: {
-      orderId: providerOrder.id,
-      amount: Number(amountPaise),
-      currency: DEFAULT_CURRENCY,
-    },
-  };
-}
-
-async function verifyTopup(userId, input) {
-  const topup = await prisma.walletTopup.findUnique({
-    where: {
-      id: input.topupId,
-    },
-  });
-
-  if (!topup || topup.userId !== userId) {
-    throw new AppError('Wallet top-up was not found.', 404, 'WALLET_TOPUP_NOT_FOUND');
-  }
-
-  if (topup.providerOrderId !== input.razorpayOrderId) {
-    throw badRequest(
-      'Razorpay order does not match this wallet top-up.',
-      'WALLET_TOPUP_ORDER_MISMATCH',
-    );
-  }
-
-  /*
-   * Safe replay.
-   *
-   * A successful top-up may be verified more than once by the browser.
-   * Once paid, never credit the wallet again.
-   */
-  if (topup.status === 'paid') {
-    if (topup.providerPaymentId && topup.providerPaymentId !== input.razorpayPaymentId) {
-      throw conflict(
-        'Wallet top-up was already completed with another payment.',
-        'WALLET_TOPUP_ALREADY_PAID',
-      );
-    }
-
-    const wallet = await getWallet(userId);
-
-    return {
-      topup: walletTopupDto(topup),
-      wallet,
-      transaction: null,
-      replayed: true,
-    };
-  }
-
-  const validSignature = razorpay.verifyCheckoutSignature({
-    orderId: input.razorpayOrderId,
-    paymentId: input.razorpayPaymentId,
-    signature: input.razorpaySignature,
-  });
-
-  if (!validSignature) {
-    throw badRequest('Razorpay payment signature is invalid.', 'WALLET_TOPUP_SIGNATURE_INVALID');
-  }
-
-  /*
-   * Do NOT trust the browser callback alone.
-   * Read payment state directly from Razorpay.
-   */
-  const providerPayment = await razorpay.fetchPaymentState(input.razorpayPaymentId);
-
-  if (!providerPayment || providerPayment.id !== input.razorpayPaymentId) {
-    throw badRequest('Razorpay payment could not be verified.', 'WALLET_TOPUP_PAYMENT_INVALID');
-  }
-
-  if (providerPayment.order_id !== topup.providerOrderId) {
-    throw badRequest(
-      'Razorpay payment belongs to another order.',
-      'WALLET_TOPUP_PAYMENT_ORDER_MISMATCH',
-    );
-  }
-
-  const expectedPaise = amountToPaise(money(topup.amount));
-
-  let providerAmount;
-
-  try {
-    providerAmount = BigInt(providerPayment.amount);
-  } catch {
-    throw badRequest(
-      'Razorpay returned an invalid payment amount.',
-      'WALLET_TOPUP_PAYMENT_INVALID',
-    );
-  }
-
-  if (providerAmount !== expectedPaise) {
-    throw badRequest(
-      'Razorpay payment amount does not match the wallet top-up.',
-      'WALLET_TOPUP_AMOUNT_MISMATCH',
-    );
-  }
-
-  if (String(providerPayment.currency || '').toUpperCase() !== DEFAULT_CURRENCY) {
-    throw badRequest(
-      'Razorpay payment currency does not match the wallet.',
-      'WALLET_TOPUP_CURRENCY_MISMATCH',
-    );
-  }
-
-  if (providerPayment.status !== 'captured') {
-    throw conflict('Razorpay payment has not been captured yet.', 'WALLET_TOPUP_NOT_CAPTURED');
-  }
-
-  /*
-   * A Razorpay payment id may belong to only one wallet top-up.
-   */
-  const usedPayment = await prisma.walletTopup.findFirst({
-    where: {
-      providerPaymentId: input.razorpayPaymentId,
-      NOT: {
-        id: topup.id,
-      },
-    },
-  });
-
-  if (usedPayment) {
-    throw conflict(
-      'Razorpay payment was already used for another wallet top-up.',
-      'WALLET_TOPUP_PAYMENT_ALREADY_USED',
-    );
-  }
-
-  /*
-   * creditWallet already has ledger-level idempotency.
-   *
-   * IMPORTANT:
-   * ₹100 paid = ₹100 credited.
-   * No bonus or percentage is added here.
-   */
-  const creditResult = await creditWallet({
-    userId,
-    amount: money(topup.amount),
-    referenceType: 'topup',
-    referenceId: topup.id,
-    description: 'Wallet top-up via Razorpay',
-    idempotencyKey: `wallet-topup-${topup.id}`,
-  });
-
-  let paidTopup;
-
-  try {
-    paidTopup = await prisma.walletTopup.update({
-      where: {
-        id: topup.id,
-      },
-      data: {
-        providerPaymentId: input.razorpayPaymentId,
-        status: 'paid',
-        paidAt: new Date(),
-      },
-    });
-  } catch (error) {
-    /*
-     * provider_payment_id is unique.
-     * Handle a concurrent duplicate verification safely.
-     */
-    if (error?.code === 'P2002') {
-      const latest = await prisma.walletTopup.findUnique({
-        where: {
-          id: topup.id,
-        },
-      });
-
-      if (latest?.status === 'paid' && latest.providerPaymentId === input.razorpayPaymentId) {
-        return {
-          topup: walletTopupDto(latest),
-          wallet: creditResult.wallet,
-          transaction: creditResult.transaction,
-          replayed: true,
-        };
-      }
-    }
-
-    throw error;
-  }
-
-  return {
-    topup: walletTopupDto(paidTopup),
-    wallet: creditResult.wallet,
-    transaction: creditResult.transaction,
-    replayed: Boolean(creditResult.replayed),
-  };
-}
 async function creditWallet(input) {
   return mutateWallet('credit', input);
 }
@@ -669,8 +446,6 @@ async function debitWallet(input) {
 const WalletService = {
   getWallet,
   listTransactions,
-  createTopup,
-  verifyTopup,
 
   // INTERNAL ONLY.
   // Deliberately not exposed by wallet/routes.js or wallet/controller.js.

@@ -1,9 +1,25 @@
-'use strict';
+﻿'use strict';
 
-/**
- * reports controller — thin handlers that call the service.
- * Phase 19 placeholder. Implemented in a later phase.
- */
-const ReportsController = {};
+const ReportsService = require('./service');
+const { success } = require('../../utils/response');
 
-module.exports = { ReportsController };
+async function getReport(req, res, next) {
+  try {
+    const data = await ReportsService.getReport(req.query);
+
+    return success(res, {
+      message: 'Report generated successfully.',
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+const ReportsController = {
+  getReport,
+};
+
+module.exports = {
+  ReportsController,
+};

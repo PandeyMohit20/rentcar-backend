@@ -1,10 +1,10 @@
-'use strict';
+﻿'use strict';
 
 const { Router } = require('express');
 const { authenticate } = require('../../middlewares/authenticate');
 const { validate } = require('../../middlewares/validate');
 const { WalletController } = require('./controller');
-const { transactionsQuerySchema, createTopupSchema, verifyTopupSchema } = require('./validator');
+const { transactionsQuerySchema } = require('./validator');
 
 const router = Router();
 
@@ -17,17 +17,4 @@ router.get(
   WalletController.listTransactions,
 );
 
-router.post(
-  '/topups',
-  authenticate,
-  validate({ body: createTopupSchema }),
-  WalletController.createTopup,
-);
-
-router.post(
-  '/topups/verify',
-  authenticate,
-  validate({ body: verifyTopupSchema }),
-  WalletController.verifyTopup,
-);
 module.exports = { walletRouter: router };

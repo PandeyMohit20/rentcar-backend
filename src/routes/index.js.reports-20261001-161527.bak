@@ -19,7 +19,6 @@ const { billingApprovalRouter } = require('../modules/billingApproval/routes');
 const { bookingsRouter } = require('../modules/bookings/routes');
 const { paymentsRouter } = require('../modules/payments/routes');
 const { analyticsRouter } = require('../modules/analytics/routes');
-const { reportsRouter } = require('../modules/reports/routes');
 const { couponRouter } = require('../modules/coupons/routes');
 const { walletRouter } = require('../modules/wallet/routes');
 const { refundsRouter } = require('../modules/refunds/routes');
@@ -60,7 +59,6 @@ router.use('/admin/billing-approval', billingApprovalRouter);
 router.use('/bookings', bookingsRouter);
 router.use('/payments', paymentsRouter);
 router.use('/analytics', analyticsRouter);
-router.use('/reports', reportsRouter);
 router.use('/coupons', couponRouter);
 router.use('/wallet', walletRouter);
 router.use('/refunds', refundsRouter);
@@ -69,28 +67,19 @@ router.use('/kyc', kycRouter);
 router.use('/admin/kyc', adminKycRouter);
 router.use('/admin/bookings', adminBookingReadRouter);
 router.use('/vendor/bookings', vendorBookingReadRouter);
-router.get(
-  '/bookings/:bookingId/refunds',
-  authenticate,
-  validate({ params: refundSchemas.bookingId }),
-  RefundsController.listForBooking,
-);
-router.get(
-  '/bookings/:bookingId/invoice/download',
-  authenticate,
-  validate({ params: invoiceSchemas.bookingId }),
-  InvoicesController.download,
-);
-router.get(
-  '/bookings/:bookingId/invoice',
-  authenticate,
-  validate({ params: invoiceSchemas.bookingId }),
-  InvoicesController.getForBooking,
-);
+router.get('/bookings/:bookingId/refunds', authenticate, validate({ params: refundSchemas.bookingId }), RefundsController.listForBooking);
+router.get('/bookings/:bookingId/invoice/download', authenticate, validate({ params: invoiceSchemas.bookingId }), InvoicesController.download);
+router.get('/bookings/:bookingId/invoice', authenticate, validate({ params: invoiceSchemas.bookingId }), InvoicesController.getForBooking);
 
 // Future modules — 501 Not Implemented placeholders.
 // Business logic for these belongs to later phases.
-const futureModules = ['coupons', 'reviews', 'notifications', 'support', 'admin'];
+const futureModules = [
+  'coupons',
+  'reviews',
+  'notifications',
+  'support',
+  'admin',
+];
 
 for (const moduleName of futureModules) {
   router.use(`/${moduleName}`, notImplementedRouter(moduleName));
