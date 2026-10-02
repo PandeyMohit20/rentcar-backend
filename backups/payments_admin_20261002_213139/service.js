@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 const crypto = require('crypto');
 const { Prisma } = require('@prisma/client');
 const { prisma } = require('../../config/database');
@@ -7,7 +7,6 @@ const httpStatus = require('../../constants/httpStatus');
 const errorCodes = require('../../errors/errorCodes');
 const razorpay = require('./providers/razorpay');
 const invoices = require('../invoices/service');
-const { PaymentsRepository } = require('./repository');
 const { hasCapturedMoney } = require('./recovery');
 
 const notFound = () =>
@@ -381,61 +380,12 @@ async function getPayment(userId, paymentId) {
   if (!payment) throw notFound();
   return dto(payment);
 }
-
-/**
- * Admin: list payments.
- *
- * Read-only endpoint used by the admin payment management screen.
- */
-async function listAdminPayments(query = {}) {
-  const page = Math.max(Number(query.page) || 1, 1);
-  const limit = Math.min(Math.max(Number(query.limit) || 20, 1), 100);
-  const skip = (page - 1) * limit;
-
-  const result = await PaymentsRepository.listAdminPayments({
-    skip,
-    take: limit,
-    search: query.search,
-    status: query.status,
-    operationalStatus: query.operationalStatus,
-    provider: query.provider,
-    paymentMethod: query.paymentMethod,
-  });
-
-  return {
-    data: result.items.map(dto),
-    meta: {
-      page,
-      limit,
-      total: result.total,
-      totalPages: Math.ceil(result.total / limit),
-    },
-  };
-}
-
-/**
- * Admin: get payment by ID.
- *
- * Read-only endpoint used by the admin payment detail screen.
- */
-async function getAdminPayment(paymentId) {
-  const payment = await PaymentsRepository.findAdminPaymentById(paymentId);
-
-  if (!payment) {
-    throw notFound();
-  }
-
-  return dto(payment);
-}
 module.exports = {
   minorUnits,
   createOrder,
   verifyCheckout,
   processWebhook: processWebhookLocked,
   getPayment,
-  listAdminPayments,
-  getAdminPayment,
   dto,
   finalizeCapturedPayment,
 };
-

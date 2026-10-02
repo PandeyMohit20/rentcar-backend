@@ -1,11 +1,21 @@
-'use strict';
+﻿'use strict';
 
-/**
- * Reviews repository — data access.
- * Queries are centralized here (never directly in controllers).
- * Phase 19 placeholder. Implemented in a later phase.
- * Use the shared Prisma client: const { prisma } = require('../../config/database');
- */
-const ReviewsRepository = {};
+const { prisma } = require('../../config/database');
+
+const ReviewsRepository = {
+  findById(id) {
+    return prisma.review.findUnique({
+      where: { id },
+    });
+  },
+
+  count(where) {
+    return prisma.review.count({ where });
+  },
+
+  list(args) {
+    return prisma.review.findMany(args);
+  },
+};
 
 module.exports = { ReviewsRepository };

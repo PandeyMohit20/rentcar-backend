@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const { Router } = require('express');
 const { env } = require('../config/env');
@@ -178,13 +178,8 @@ router.get(
   InvoicesController.getForBooking,
 );
 
-// ========================================================
-// FUTURE MODULES
-// ========================================================
-
 const futureModules = [
   'coupons',
-  'reviews',
   'notifications',
   'support',
   'admin',
@@ -197,6 +192,9 @@ for (const moduleName of futureModules) {
   );
 }
 
+const { reviewsRouter } = require('../modules/reviews/routes');
+router.use('/reviews', reviewsRouter);
+
 // ========================================================
 // EXPORT
 // ========================================================
@@ -205,3 +203,4 @@ module.exports = {
   apiRouter: router,
   apiPrefix: env.API_PREFIX,
 };
+

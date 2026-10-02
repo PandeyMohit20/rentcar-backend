@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const bcrypt = require('bcrypt');
 const { PrismaClient } = require('@prisma/client');
@@ -11,6 +11,7 @@ const permissionNames = [
   'vendors.view', 'vendors.create', 'vendors.update', 'vendors.delete',
   'locations.view', 'locations.create', 'locations.update', 'locations.delete',
   'fleet.view', 'fleet.create', 'fleet.update', 'fleet.delete',
+  'reviews.view', 'reviews.moderate',
 ];
 
 async function main() {
@@ -42,3 +43,4 @@ async function main() {
 }
 
 main().finally(() => prisma.$disconnect());
+

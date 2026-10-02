@@ -1,50 +1,16 @@
-﻿'use strict';
-
+'use strict';
 const { Router } = require('express');
 const { authenticate } = require('../../middlewares/authenticate');
-const { authorize } = require('../../middlewares/authorize');
 const { validate } = require('../../middlewares/validate');
 const { PaymentsController } = require('./controller');
 const schemas = require('./validator');
 const router = Router();
-
-
-// ============================================================
-// ADMIN PAYMENT READ APIs
-// ============================================================
-
-router.get(
-  '/admin',
-  authenticate,
-  authorize('payments.view'),
-  validate({
-    query: schemas.adminList,
-  }),
-  PaymentsController.adminList,
-);
-
-router.get(
-  '/admin/:paymentId',
-  authenticate,
-  authorize('payments.view'),
-  validate({
-    params: schemas.adminPaymentId,
-  }),
-  PaymentsController.adminGet,
-);
-
-
-// ============================================================
-// CUSTOMER PAYMENT APIs
-// ============================================================
-
 router.post(
   '/orders',
   authenticate,
   validate({ body: schemas.order }),
   PaymentsController.createOrder,
 );
-
 router.post(
   '/:bookingId/reconcile',
   authenticate,
@@ -60,7 +26,6 @@ router.post(
         userId: req.user.sub,
         bookingId: req.params.bookingId,
       });
-
       return require('../../utils/response').success(res, {
         message: 'Provider payment state checked.',
         data,
@@ -71,24 +36,12 @@ router.post(
     }
   },
 );
-
-router.post(
-  '/verify',
-  authenticate,
-  validate({ body: schemas.verify }),
-  PaymentsController.verify,
-);
-
-router.post(
-  '/webhook/razorpay',
-  PaymentsController.webhook,
-);
-
+router.post('/verify', authenticate, validate({ body: schemas.verify }), PaymentsController.verify);
+router.post('/webhook/razorpay', PaymentsController.webhook);
 router.get(
   '/:paymentId',
   authenticate,
   validate({ params: schemas.paymentId }),
   PaymentsController.get,
 );
-
 module.exports = { paymentsRouter: router };
