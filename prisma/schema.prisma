@@ -634,7 +634,8 @@ model Branch {
   location Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
   vendor   Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   cars     Car[]
-
+  vehicleTransfersFrom VehicleTransfer[] @relation("VehicleTransferFromBranch")
+  vehicleTransfersTo   VehicleTransfer[] @relation("VehicleTransferToBranch")
   @@index([locationId])
   @@index([vendorId])
   @@index([isOperational])
@@ -679,7 +680,7 @@ model Car {
   bookings       Booking[]
   bookingItems   BookingItem[]
   reviews        Review[]
-
+  vehicleTransfers VehicleTransfer[]
   @@index([vendorId])
   @@index([branchId])
   @@index([status])
@@ -687,6 +688,28 @@ model Car {
   @@index([manufacturingYear])
   @@index([isDeleted])
   @@map("cars")
+}
+
+model VehicleTransfer {
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  carId        String   @map("car_id") @db.VarChar(36)
+  fromBranchId String   @map("from_branch_id") @db.VarChar(36)
+  toBranchId   String   @map("to_branch_id") @db.VarChar(36)
+  transferDate DateTime @map("transfer_date") @db.Date
+  reason       String?  @db.VarChar(255)
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  car        Car    @relation(fields: [carId], references: [id], onDelete: Restrict)
+  fromBranch Branch @relation("VehicleTransferFromBranch", fields: [fromBranchId], references: [id], onDelete: Restrict)
+  toBranch   Branch @relation("VehicleTransferToBranch", fields: [toBranchId], references: [id], onDelete: Restrict)
+
+  @@index([carId])
+  @@index([fromBranchId])
+  @@index([toBranchId])
+  @@index([transferDate])
+  @@map("vehicle_transfers")
 }
 
 model CarImage {
@@ -1692,3 +1715,5 @@ model WalletTopup {
   @@index([status])
   @@map("wallet_topups")
 }
+
+
