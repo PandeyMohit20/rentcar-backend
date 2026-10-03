@@ -72,7 +72,6 @@ router.get(
   controller.listForCar,
 );
 
-
 /*
  * ============================================================
  * ADMIN REVIEW APIs

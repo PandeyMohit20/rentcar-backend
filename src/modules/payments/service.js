@@ -438,4 +438,3 @@ module.exports = {
   dto,
   finalizeCapturedPayment,
 };
-

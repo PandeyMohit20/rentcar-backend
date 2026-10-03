@@ -8,7 +8,6 @@ const { PaymentsController } = require('./controller');
 const schemas = require('./validator');
 const router = Router();
 
-
 // ============================================================
 // ADMIN PAYMENT READ APIs
 // ============================================================
@@ -32,7 +31,6 @@ router.get(
   }),
   PaymentsController.adminGet,
 );
-
 
 // ============================================================
 // CUSTOMER PAYMENT APIs

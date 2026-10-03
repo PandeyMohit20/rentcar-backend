@@ -1,7 +1,31 @@
-'use strict';
+﻿'use strict';
 
-/**
- * support module constants.
- * Phase 19 placeholder. Implemented in a later phase.
- */
-module.exports = {};
+const TICKET_STATUSES = [
+  'open',
+  'pending',
+  'resolved',
+  'closed',
+  'reopened',
+];
+
+const TICKET_PRIORITIES = [
+  'low',
+  'medium',
+  'high',
+  'urgent',
+];
+
+const TICKET_CATEGORIES = [
+  'booking',
+  'payment',
+  'refund',
+  'support',
+  'technical',
+  'other',
+];
+
+module.exports = {
+  TICKET_STATUSES,
+  TICKET_PRIORITIES,
+  TICKET_CATEGORIES,
+};

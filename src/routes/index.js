@@ -24,6 +24,7 @@ const { billingApprovalRouter } = require('../modules/billingApproval/routes');
 const { bookingsRouter } = require('../modules/bookings/routes');
 const { paymentsRouter } = require('../modules/payments/routes');
 
+const { searchRouter } = require('../modules/search/routes');
 const { analyticsRouter } = require('../modules/analytics/routes');
 const { reportsRouter } = require('../modules/reports/routes');
 
@@ -117,6 +118,7 @@ router.use('/payments', paymentsRouter);
 // ANALYTICS & REPORTS
 // ========================================================
 
+router.use('/search', searchRouter);
 router.use('/analytics', analyticsRouter);
 router.use('/reports', reportsRouter);
 
@@ -181,7 +183,6 @@ router.get(
 const futureModules = [
   'coupons',
   'notifications',
-  'support',
   'admin',
 ];
 
@@ -191,6 +192,9 @@ for (const moduleName of futureModules) {
     notImplementedRouter(moduleName),
   );
 }
+
+const { supportRouter } = require('../modules/support/routes');
+router.use('/support', supportRouter);
 
 const { reviewsRouter } = require('../modules/reviews/routes');
 router.use('/reviews', reviewsRouter);
@@ -203,4 +207,3 @@ module.exports = {
   apiRouter: router,
   apiPrefix: env.API_PREFIX,
 };
-
