@@ -14,6 +14,29 @@ function capture(f) { return processWebhook({ eventId: `evt_${f.payment.id}`, ra
 function cancel(f, key = 'durable-cancel-key') { return cancelBooking({ userId: f.user.id, bookingId: f.booking.id, idempotencyKey: key }); }
 describe('cancellation/capture winner semantics', () => {
   beforeEach(() => { resetStore(); jest.clearAllMocks(); razorpay.parseWebhookEvent.mockImplementation((raw) => JSON.parse(raw.toString())); razorpay.createRefund.mockResolvedValue({ providerRefundId: 'rfnd_winner', status: 'pending' }); });
+  afterEach(() => jest.restoreAllMocks());
+  it('uses bounded transaction settings and calls Razorpay only after cancellation commits', async () => {
+    const f = await captureFixture();
+    await capture(f);
+    const transaction = prisma.$transaction.bind(prisma);
+    let cancellationCommitted = false;
+    const transactionSpy = jest.spyOn(prisma, '$transaction').mockImplementation(async (work, options) => {
+      const result = await transaction(work, options);
+      cancellationCommitted = true;
+      return result;
+    });
+    razorpay.createRefund.mockImplementation(async () => {
+      expect(cancellationCommitted).toBe(true);
+      expect((await prisma.booking.findUnique({ where: { id: f.booking.id } })).status).toBe('CANCELLED');
+      expect((await prisma.refund.findFirst({ where: { bookingId: f.booking.id } })).status).toBe('pending');
+      return { providerRefundId: 'rfnd_after_commit', status: 'pending' };
+    });
+
+    await cancel(f);
+
+    expect(transactionSpy.mock.calls[0][1]).toEqual({ maxWait: 10000, timeout: 20000 });
+    expect(razorpay.createRefund).toHaveBeenCalledTimes(1);
+  });
   it('keeps cancellation final and records late captured money without refund or confirmation', async () => {
     const f = await captureFixture(); await cancel(f); await capture(f);
     expect(await prisma.booking.findUnique({ where: { id: f.booking.id } })).toMatchObject({ status: 'CANCELLED', paymentStatus: 'pending' });
@@ -42,5 +65,18 @@ describe('cancellation/capture winner semantics', () => {
     expect(await prisma.booking.findUnique({ where: { id: f.booking.id } })).toMatchObject({ status: 'CONFIRMED', paymentStatus: 'succeeded' });
     expect(await prisma.refund.count()).toBe(0); expect(razorpay.createRefund).not.toHaveBeenCalled();
     expect(await prisma.bookingStatusHistory.count({ where: { toStatus: 'CANCELLED' } })).toBe(0);
+  });
+  it.each(['refund record', 'status history'])('rolls back paid cancellation if %s write fails', async (failedWrite) => {
+    const f = await captureFixture();
+    await capture(f);
+    const model = failedWrite === 'refund record' ? prisma.refund : prisma.bookingStatusHistory;
+    jest.spyOn(model, 'create').mockRejectedValueOnce(new Error(`${failedWrite} write failed`));
+
+    await expect(cancel(f, `rollback-${failedWrite.replaceAll(' ', '-')}`)).rejects.toThrow(`${failedWrite} write failed`);
+
+    expect(await prisma.booking.findUnique({ where: { id: f.booking.id } })).toMatchObject({ status: 'CONFIRMED', paymentStatus: 'succeeded' });
+    expect(await prisma.refund.count({ where: { bookingId: f.booking.id } })).toBe(0);
+    expect(await prisma.bookingStatusHistory.count({ where: { bookingId: f.booking.id, toStatus: 'CANCELLED' } })).toBe(0);
+    expect(razorpay.createRefund).not.toHaveBeenCalled();
   });
 });

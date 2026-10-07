@@ -216,7 +216,7 @@ async function cancelBooking({ userId, bookingId, reason, idempotencyKey, testHo
     if (paid) refund = await tx.refund.create({ data: { bookingId: booking.id, paymentId: payment.id, amount: payment.amount, currencyCode: payment.currencyCode, provider: 'razorpay', idempotencyKey, reason: reason || null, status: 'pending' } });
     await tx.bookingStatusHistory.create({ data: { bookingId: booking.id, fromStatus: booking.status, toStatus: 'CANCELLED', changedBy: userId, reason: reason || (paid ? 'Cancelled by customer; refund requested.' : 'Cancelled by customer.') } });
     return paid ? { booking: dto(updated), refund, replayed: false } : { booking: dto(updated), replayed: false };
-  });
+  }, { maxWait: 10000, timeout: 20000 });
 }
 
 async function reconcileRefund(refund, payment, result) { return require('../refunds/service').reconcileProviderResult(refund, result); }
