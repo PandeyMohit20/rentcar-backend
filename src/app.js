@@ -37,7 +37,10 @@ function createApp() {
   app.use(cors(corsOptions));
 
   // Razorpay signs exact webhook bytes; keep this route isolated from JSON parsing.
-  app.use(`${apiPrefix}/payments/webhook/razorpay`, express.raw({ type: 'application/json', limit: '1mb' }));
+  app.use(
+    `${apiPrefix}/payments/webhook/razorpay`,
+    express.raw({ type: 'application/json', limit: '1mb' }),
+  );
 
   // Request body parsing with size limits (1mb).
   app.use(express.json({ limit: '1mb' }));
@@ -45,15 +48,15 @@ function createApp() {
 
   // Cookie parsing.
   app.use(cookieParser());
+  app.use('/uploads/cars', (req, res, next) => {
+    // Fleet images are public catalogue assets embedded by the customer/admin origins.
+    // Apply this to misses too so Helmet's default does not mask the real 404.
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  });
   app.use(
     '/uploads/cars',
-    express.static(path.join(require('./config/uploads').uploadRoot, 'cars'), {
-      setHeaders(res) {
-        // Fleet images are public catalogue assets embedded by the customer/admin origins.
-        // Helmet's default same-origin policy remains in force everywhere else.
-        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-      },
-    }),
+    express.static(path.join(require('./config/uploads').uploadRoot, 'cars')),
   );
 
   // Compression.

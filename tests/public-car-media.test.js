@@ -27,6 +27,12 @@ describe('Public car media security headers', () => {
     expect(response.headers['cross-origin-resource-policy']).toBe('cross-origin');
   });
 
+  it('does not let Helmet mask missing public images as same-origin-only', async () => {
+    const response = await request(app).get('/uploads/cars/missing-public-image.png');
+    expect(response.status).toBe(404);
+    expect(response.headers['cross-origin-resource-policy']).toBe('cross-origin');
+  });
+
   it('keeps private media non-public with Helmet same-origin protection', async () => {
     const privateStatic = await request(app).get('/uploads/private/users/private-document.pdf');
     expect(privateStatic.status).toBe(404);
