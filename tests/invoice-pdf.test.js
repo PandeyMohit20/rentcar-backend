@@ -5,6 +5,8 @@ const { prisma, resetStore, seedUser } = require('./helpers/auth');
 const { signAccessToken } = require('../src/utils/jwt');
 const { renderPdf, pdfBlocker } = require('../src/modules/invoices/pdf');
 const { invoiceData } = require('./helpers/phase7');
+const fs = require('fs');
+const path = require('path');
 describe('Authoritative PDF invoices', () => {
   beforeEach(resetStore);
   it('allocates consecutive invoice numbers and rolls the financial year at IST midnight', async () => {
@@ -23,6 +25,13 @@ describe('Authoritative PDF invoices', () => {
     });
     expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
     expect(pdf.length).toBeGreaterThan(1500);
+  });
+  it('includes PDFKit standard font assets in the Vercel Express function', () => {
+    const vercel = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'vercel.json'), 'utf8'));
+    expect(vercel.functions['index.js'].includeFiles).toBe(
+      'node_modules/pdfkit/js/standard-fonts/**',
+    );
+    expect(fs.existsSync(require.resolve('pdfkit/standard-fonts/Helvetica'))).toBe(true);
   });
   it('does not invent historical tax or missing seller details', () => {
     expect(pdfBlocker({})).toBe('INVOICE_HISTORICAL_SNAPSHOT_UNAVAILABLE');
@@ -55,6 +64,16 @@ describe('Authoritative PDF invoices', () => {
     expect(own.status).toBe(200);
     expect(own.headers['content-type']).toContain('application/pdf');
     expect(own.headers['cache-control']).toBe('private, no-store');
+    const missingInvoice = await prisma.booking.create({
+      data: { userId: user.id, status: 'CONFIRMED', paymentStatus: 'succeeded' },
+    });
+    expect(
+      (
+        await request(app)
+          .get(`/api/v1/bookings/${missingInvoice.id}/invoice/download`)
+          .set('Authorization', `Bearer ${signAccessToken({ sub: user.id, type: 'access' })}`)
+      ).status,
+    ).toBe(404);
     expect(
       (
         await request(app)
