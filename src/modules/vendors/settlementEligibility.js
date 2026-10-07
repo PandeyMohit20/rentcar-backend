@@ -15,6 +15,10 @@ function money(value) {
   return `${value < 0n ? '-' : ''}${abs / 100n}.${String(abs % 100n).padStart(2, '0')}`;
 }
 
+function subtractMinor(left, right) {
+  return left - right;
+}
+
 function evaluateSettlementEligibility({ booking: b, payments = [], refunds = [], items = [], audits = [], evidenceTruncated = false, trips = [] }, vendorId) {
   const blockers = [];
   const block = (code, message) => { if (!blockers.some((x) => x.code === code)) blockers.push({ code, message }); };
@@ -65,7 +69,9 @@ function evaluateSettlementEligibility({ booking: b, payments = [], refunds = []
   const unresolved = selectedRefunds.filter((r) => ['pending', 'processing'].includes(r.status));
   if (unresolved.length) block('REFUND_UNRESOLVED', 'Refund processing is unresolved.');
   if (!validRefunds) refunded = null;
-  const remaining = !missing(gross) && !missing(refunded) ? gross - refunded : null;
+  const remaining = !missing(gross) && !missing(refunded)
+    ? subtractMinor(gross, refunded)
+    : null;
   if (!missing(remaining) && remaining < 0n) block('REFUND_TOTAL_IMPOSSIBLE', 'Successful refunds exceed the captured amount.');
   if (p?.status === 'refunded' && (!refunded || refunded < 0n)) block('REFUND_EVIDENCE_INCOMPLETE', 'Refunded payment has no valid successful refund evidence.');
 

@@ -6,6 +6,7 @@
   "private": true,
   "scripts": {
     "start": "node src/server.js",
+    "build": "prisma generate",
     "dev": "nodemon src/server.js",
     "test": "cross-env NODE_ENV=test jest --runInBand",
     "test:watch": "cross-env NODE_ENV=test jest --watchAll",
@@ -14,6 +15,12 @@
     "check": "node scripts/check.js",
     "health": "node scripts/health.js",
     "db:seed": "prisma db seed"
+  },
+  "allowScripts": {
+    "@prisma/client": true,
+    "@prisma/engines": true,
+    "bcrypt": true,
+    "prisma": true
   },
   "prisma": {
     "seed": "node prisma/seed.js"

@@ -6,5 +6,7 @@ const os = require('os');
 const uploadRoot =
   process.env.NODE_ENV === 'test'
     ? fs.mkdtempSync(path.join(os.tmpdir(), 'rentcar-test-uploads-'))
-    : path.join(process.cwd(), 'uploads');
+    : process.env.VERCEL === '1'
+      ? path.join(os.tmpdir(), 'rentcar-uploads')
+      : path.join(process.cwd(), 'uploads');
 module.exports = { uploadRoot };
