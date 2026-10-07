@@ -146,7 +146,7 @@ const holdExpiresAt = new Date(Date.now() + env.BOOKING_HOLD_TTL_MINUTES * 60000
       });
     }
 
-    await tx.bookingItem.create({ data: { bookingId: created.id, carId: created.carId, itemType: 'car', quantity: 1, unitPrice: created.subtotal, currencyCode: created.currencyCode, subtotal: created.subtotal } }); await tx.bookingStatusHistory.create({ data: { bookingId: created.id, fromStatus: null, toStatus: 'PAYMENT_PENDING', changedBy: userId, reason: 'Temporary payment hold created.' } }); return created; }); return { booking: dto(booking), replayed: false }; } catch (err) { if (err.code === 'P2002') { const raced = await existing(userId, idempotencyKey); if (raced && raced.idempotencyHash === hash) return { booking: dto(raced), replayed: true }; throw conflict('Idempotency key was already used for a different request.'); } throw err; } }
+    await tx.bookingItem.create({ data: { bookingId: created.id, carId: created.carId, itemType: 'car', quantity: 1, unitPrice: created.subtotal, currencyCode: created.currencyCode, subtotal: created.subtotal } }); await tx.bookingStatusHistory.create({ data: { bookingId: created.id, fromStatus: null, toStatus: 'PAYMENT_PENDING', changedBy: userId, reason: 'Temporary payment hold created.' } }); return created; }, { maxWait: 10000, timeout: 20000 }); return { booking: dto(booking), replayed: false }; } catch (err) { if (err.code === 'P2002') { const raced = await existing(userId, idempotencyKey); if (raced && raced.idempotencyHash === hash) return { booking: dto(raced), replayed: true }; throw conflict('Idempotency key was already used for a different request.'); } throw err; } }
 async function listMine(userId, query) {
   const page = query.page || 1;
   const limit = query.limit || 20;
