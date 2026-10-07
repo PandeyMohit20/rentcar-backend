@@ -3,6 +3,7 @@ const { Prisma } = require('@prisma/client');
 const { prisma } = require('../../config/database');
 const { env } = require('../../config/env');
 const AppError = require('../../errors/AppError');
+const { logger } = require('../../config/logger');
 const provider = require('./providers/razorpay');
 const { minorUnits, finalizeCapturedPayment } = require('./service');
 const failure = (message, code = 'PAYMENT_RECONCILIATION_MISMATCH', status = 409) =>
@@ -12,6 +13,7 @@ const isSettled = (b, p) =>
   b.paymentStatus === 'succeeded' &&
   p.status === 'succeeded' &&
   p.operationalStatus === 'normal';
+const RECONCILIATION_TRANSACTION_OPTIONS = { maxWait: 10000, timeout: 20000 };
 
 // Provider reads are bounded and use only server-stored order IDs. A retry can
 // create another order, so neither creation order nor local status proves capture.
@@ -114,7 +116,7 @@ async function reconcile({ userId, bookingId }) {
       if (!b || b.carId !== candidate.carId)
         throw failure('Booking not found.', 'RESOURCE_NOT_FOUND', 404);
       return work(tx, b);
-    });
+    }, RECONCILIATION_TRANSACTION_OPTIONS);
   const claim = await locked(async (tx, b) => {
     const orders = (
       await tx.payment.findMany({ where: { bookingId, provider: 'razorpay' } })
@@ -316,31 +318,39 @@ async function reconcile({ userId, bookingId }) {
         bookingStatus: finalBooking.status,
         paymentStatus: finalPayment.status,
       };
-    });
+    }, RECONCILIATION_TRANSACTION_OPTIONS);
   } catch (err) {
     const known = err instanceof AppError;
-    await prisma.auditLog.update({
-      where: { id: auditId },
-      data: {
-        result:
-          err.code === 'MULTIPLE_CAPTURED_PAYMENTS_REQUIRES_REVIEW'
-            ? 'requires_review'
-            : known && err.statusCode === 409
-              ? 'rejected'
-              : 'error',
-        metadata: JSON.stringify({
-          source: 'provider_reconciliation',
-          bookingId,
-          localPaymentId: payment.id,
-          orderId: payment.providerOrderId,
-          providerPaymentId,
-          previousStatus: payment.status,
-          providerStatus,
-          code: known ? err.code : 'PAYMENT_PROVIDER_UNAVAILABLE',
-          ...(err.captureIds ? { capturedPaymentIds: err.captureIds } : {}),
-        }),
-      },
-    });
+    try {
+      await prisma.auditLog.update({
+        where: { id: auditId },
+        data: {
+          result:
+            err.code === 'MULTIPLE_CAPTURED_PAYMENTS_REQUIRES_REVIEW'
+              ? 'requires_review'
+              : known && err.statusCode === 409
+                ? 'rejected'
+                : 'error',
+          metadata: JSON.stringify({
+            source: 'provider_reconciliation',
+            bookingId,
+            localPaymentId: payment.id,
+            orderId: payment.providerOrderId,
+            providerPaymentId,
+            previousStatus: payment.status,
+            providerStatus,
+            code: known ? err.code : 'PAYMENT_PROVIDER_UNAVAILABLE',
+            ...(err.captureIds ? { capturedPaymentIds: err.captureIds } : {}),
+          }),
+        },
+      });
+    } catch (auditError) {
+      logger.error('Payment reconciliation failure audit write failed', {
+        bookingId,
+        paymentId: payment.id,
+        errorCode: auditError.code || auditError.name || 'UNKNOWN',
+      });
+    }
     if (known) throw err;
     if (err.code === 'P2002')
       throw failure('Provider payment is already associated with another transaction.');

@@ -101,7 +101,14 @@ async function singleSettlement() {
   ).toBe(1);
 }
 it('captured payment recovers expired hold with exact paise and safe audit', async () => {
+  const transaction = prisma.$transaction.bind(prisma);
+  const transactionSpy = jest
+    .spyOn(prisma, '$transaction')
+    .mockImplementation((work) => transaction(work));
   expect((await post()).status).toBe(200);
+  expect(transactionSpy).toHaveBeenCalledTimes(2);
+  for (const [, options] of transactionSpy.mock.calls)
+    expect(options).toEqual({ maxWait: 10000, timeout: 20000 });
   await singleSettlement();
   const a = await prisma.auditLog.findFirst();
   expect(a.result).toBe('reconciled');
@@ -266,6 +273,25 @@ it('transaction failure cannot leave payment settled without booking/document', 
   await expect(recover()).rejects.toMatchObject({ statusCode: 503 });
   expect((await prisma.payment.findUnique({ where: { id: payment.id } })).status).toBe('pending');
   expect(await prisma.bookingStatusHistory.count()).toBe(0);
+});
+it('failure-audit write does not replace the original finalization failure', async () => {
+  jest.spyOn(prisma.invoice, 'create').mockRejectedValueOnce(Error('original finalization failure'));
+  jest.spyOn(prisma.auditLog, 'update').mockRejectedValueOnce(Error('audit storage unavailable'));
+  const logger = require('../src/config/logger').logger;
+  const logSpy = jest.spyOn(logger, 'error').mockImplementation(() => {});
+
+  await expect(recover()).rejects.toMatchObject({
+    statusCode: 503,
+    code: 'PAYMENT_PROVIDER_UNAVAILABLE',
+  });
+  expect(logSpy).toHaveBeenCalledWith(
+    'Payment reconciliation failure audit write failed',
+    expect.objectContaining({ bookingId: booking.id, paymentId: payment.id }),
+  );
+  expect((await prisma.payment.findUnique({ where: { id: payment.id } })).status).toBe('pending');
+  expect((await prisma.booking.findUnique({ where: { id: booking.id } })).status).toBe(
+    'PAYMENT_PENDING',
+  );
 });
 it('rejects stored booking amount drift', async () => {
   await prisma.booking.update({ where: { id: booking.id }, data: { totalAmount: 124 } });
