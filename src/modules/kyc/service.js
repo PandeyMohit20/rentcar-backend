@@ -43,9 +43,14 @@ const KycService = {
   },
   async submit(userId) {
     const current = await profile(userId); if (current.verificationStatus === 'verified') throw conflict('Verified KYC cannot be resubmitted by the customer.');
-    const licence = await prisma.userDocument.findFirst({ where: { userId, documentType: 'driving_license', status: 'pending' }, orderBy: { createdAt: 'desc' } });
-    if (!licence || !licence.expiresAt || new Date(licence.expiresAt) <= new Date()) throw new AppError('A current pending driving licence is required for KYC submission.', httpStatus.UNPROCESSABLE_ENTITY, errorCodes.VALIDATION_ERROR);
-    const now = new Date(); const next = await prisma.profile.update({ where: { userId }, data: { verificationStatus: 'pending', submittedAt: current.submittedAt || now, rejectionReason: null } });
+    const now = new Date();
+    let licence = await prisma.userDocument.findFirst({ where: { userId, documentType: 'driving_license', status: 'pending' }, orderBy: { createdAt: 'desc' } });
+    if (!licence || !licence.expiresAt || new Date(licence.expiresAt) <= now) {
+      const verifiedLicences = await prisma.userDocument.findMany({ where: { userId, documentType: 'driving_license', status: 'verified' }, orderBy: { expiresAt: 'desc' } });
+      licence = verifiedLicences.find((document) => document.expiresAt && new Date(document.expiresAt) > now) || null;
+    }
+    if (!licence || !licence.expiresAt || new Date(licence.expiresAt) <= now) throw new AppError('A current pending or verified driving licence is required for KYC submission.', httpStatus.UNPROCESSABLE_ENTITY, errorCodes.VALIDATION_ERROR);
+    const next = await prisma.profile.update({ where: { userId }, data: { verificationStatus: 'pending', submittedAt: now, rejectionReason: null } });
     await audit(userId, current.verificationStatus === 'rejected' ? 'kyc.customer.resubmitted' : 'kyc.customer.submitted', userId, { oldStatus: current.verificationStatus || 'unverified', newStatus: 'pending' });
     return { verificationStatus: next.verificationStatus, submittedAt: next.submittedAt, verifiedAt: next.verifiedAt || null, rejectionReason: next.verificationStatus === 'rejected' ? next.rejectionReason : null };
   },
